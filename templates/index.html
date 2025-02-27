@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Hotdog Classifier - Is it a hotdog?{% endblock %}
+
+{% block content %}
+<header class="header">
+    <h1>🌭 Hotdog Classifier 🌭</h1>
+    <p class="subtitle">Upload an image to check if it contains a hotdog</p>
+</header>
+
+<main class="main-content">
+    <div class="upload-container">
+        <form id="upload-form" enctype="multipart/form-data">
+            <div class="drop-zone">
+                <span class="drop-zone__prompt">Drop image here or click to upload</span>
+                <input type="file" name="file" class="drop-zone__input" accept="image/*">
+            </div>
+        </form>
+    </div>
+
+    <div id="preview-container" class="hidden">
+        <h3>Preview:</h3>
+        <img id="image-preview" src="" alt="Image preview">
+    </div>
+
+    <div id="result-container" class="hidden">
+        <h2 id="result-text"></h2>
+    </div>
+
+    <div id="loading-spinner" class="hidden">
+        <div class="spinner"></div>
+        <p>Analyzing image... 🔍</p>
+    </div>
+
+    <div id="error-container" class="hidden">
+        <p id="error-text" class="error-message"></p>
+    </div>
+</main>
+
+<footer class="footer">
+    <p>Powered by OpenRouter API & GPT-4 Vision</p>
+</footer>
+{% endblock %}
