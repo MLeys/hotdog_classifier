@@ -25,41 +25,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const hotdogCount = document.getElementById('hotdog-count');
     const hotdogRate = document.getElementById('hotdog-rate');
     const historyList = document.getElementById('history-list');
+    const resetStatsButton = document.getElementById('reset-stats');
 
     // State Management
-    let stats = JSON.parse(localStorage.getItem('hotdogStats')) || {
+    let history = JSON.parse(localStorage.getItem('hotdogHistory')) || [];
+    let stats = {
         total: 0,
         hotdogs: 0
     };
-    let history = JSON.parse(localStorage.getItem('hotdogHistory')) || [];
 
     /**
-     * Update statistics display and save to localStorage
+     * Calculate and update statistics based on history
      */
-    function updateStats() {
+    function calculateStats() {
+        stats.total = history.length;
+        stats.hotdogs = history.filter(item => item.isHotdog).length;
+        
+        // Update display
         totalCount.textContent = stats.total;
         hotdogCount.textContent = stats.hotdogs;
-        const rate = stats.total ? ((stats.hotdogs / stats.total) * 100).toFixed(1) : 0;
+        const rate = stats.total ? ((stats.hotdogs / stats.total) * 100).toFixed(1) : '0.0';
         hotdogRate.textContent = `${rate}%`;
-        localStorage.setItem('hotdogStats', JSON.stringify(stats));
     }
 
     /**
-     * Add new item to history and update display
+     * Add new item to history and update stats
      * @param {string} imageUrl URL or data URL of the image
-     * @param {string} result Classification result
+     * @param {string} result Classification result text
      */
     function addToHistory(imageUrl, result) {
+        const isHotdog = result.includes('Hotdog!');
         const item = {
             imageUrl,
             result,
+            isHotdog,
             timestamp: new Date().toLocaleString()
         };
         
         history.unshift(item);
         if (history.length > 50) history.pop(); // Keep last 50 items
+        
+        // Save to localStorage and update display
         localStorage.setItem('hotdogHistory', JSON.stringify(history));
         updateHistoryDisplay();
+        calculateStats();
+    }
+
+    /**
+     * Reset history and stats
+     */
+    function resetStats() {
+        history = [];
+        localStorage.setItem('hotdogHistory', JSON.stringify(history));
+        updateHistoryDisplay();
+        calculateStats();
     }
 
     /**
@@ -73,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="content">
                     <div class="result" style="color: ${
-                        item.result.includes('Hotdog') ? 
+                        item.isHotdog ? 
                         'var(--success-color)' : 'var(--error-color)'
                     }">
                         ${item.result}
@@ -106,10 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         errorText.textContent = message + details;
         errorSection.classList.remove('hidden');
         
-        // Scroll error into view
         errorSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        // Auto-hide after 8 seconds
         setTimeout(() => {
             errorSection.classList.add('hidden');
         }, 8000);
@@ -152,16 +169,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return null;
             }
 
-            // Display the URL being tried
             urlDisplay.textContent = `Processing: ${url}`;
             urlDisplay.classList.remove('hidden');
 
-            // For Bing image URLs, use as is
             if (url.includes('bing.com/th/id/')) {
                 return url;
             }
 
-            // For other URLs, check and handle image extensions
             let cleanUrl = url.split('?')[0].split('#')[0];
             const hasImageExt = /\.(jpg|jpeg|png|gif|webp)$/i.test(cleanUrl);
 
@@ -178,27 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Handle API response
-     * @param {Response} response - Fetch API response
-     * @returns {Promise} - Parsed response
-     */
-    async function handleResponse(response) {
-        const data = await response.json();
-        
-        if (!response.ok) {
-            console.error('API Error:', {
-                status: response.status,
-                statusText: response.statusText,
-                data: data
-            });
-            
-            throw new Error(data.error || 'Classification failed');
-        }
-        
-        return data;
-    }
-
-    /**
      * Classify image and handle response
      * @param {FormData} formData Form data containing file or URL
      */
@@ -212,7 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
-            const data = await handleResponse(response);
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Classification failed');
+            }
+
+            const data = await response.json();
             
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
@@ -220,14 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
             resultText.style.color = data.result.includes('Hotdog') ? 
                 'var(--success-color)' : 'var(--error-color)';
 
-            // Update statistics
-            stats.total++;
-            if (data.result.includes('Hotdog')) {
-                stats.hotdogs++;
-            }
-            updateStats();
-
-            // Add to history
             addToHistory(previewImage.src, data.result);
 
         } catch (error) {
@@ -277,13 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Try to load the image first
             const imgPromise = new Promise((resolve, reject) => {
                 const testImg = new Image();
                 testImg.onload = () => resolve(formattedUrl);
                 testImg.onerror = () => reject('Failed to load image');
-                
-                // Add crossOrigin attribute to handle CORS
                 testImg.crossOrigin = "anonymous";
                 testImg.src = formattedUrl;
             });
@@ -291,11 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingSection.classList.remove('hidden');
             await imgPromise;
             
-            // Convert image to base64 if it's a direct URL
             const formData = new FormData();
             
             try {
-                // Try to convert to base64 first
                 const response = await fetch(formattedUrl);
                 const blob = await response.blob();
                 const reader = new FileReader();
@@ -310,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 formData.append('base64', base64Data);
             } catch (error) {
-                // Fallback to direct URL if base64 conversion fails
                 formData.append('url', formattedUrl);
             }
 
@@ -324,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Event Listeners - File Upload
+    // Event Listeners
     fileInput.addEventListener('change', (e) => {
         if (fileInput.files.length) {
             handleFile(fileInput.files[0]);
@@ -332,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     dropZone.addEventListener('click', () => fileInput.click());
+    
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.style.borderStyle = 'solid';
@@ -352,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Event Listener - URL Form
     urlForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const url = urlInput.value.trim();
@@ -360,10 +344,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!url) return;
 
         await handleUrl(url);
-        urlInput.value = ''; // Clear input after submission
+        urlInput.value = '';
+    });
+
+    resetStatsButton?.addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset history and statistics?')) {
+            resetStats();
+        }
     });
 
     // Initialize
-    updateStats();
     updateHistoryDisplay();
+    calculateStats();
 });

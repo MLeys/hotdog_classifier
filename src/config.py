@@ -39,6 +39,7 @@ UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', str(BASE_DIR / 'uploads'))
 
 # Set maximum content length (10MB default)
 DEFAULT_MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB in bytes
+
 try:
     MAX_CONTENT_LENGTH = int(os.getenv('MAX_IMAGE_SIZE', DEFAULT_MAX_CONTENT_LENGTH))
 except (TypeError, ValueError):

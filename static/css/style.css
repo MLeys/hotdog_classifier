@@ -283,6 +283,31 @@ footer {
     display: none !important;
 }
 
+/* Add these styles to your existing stats section styles */
+.reset-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--primary-color);
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.reset-button:hover {
+    opacity: 1;
+}
+
+/* Make sure your stats-section has position: relative */
+.stats-section {
+    position: relative;
+    /* ... rest of your existing stats-section styles ... */
+}
+
 /* Responsive Design */
 @media (min-width: 769px) {
     /* Desktop and tablet layouts */
