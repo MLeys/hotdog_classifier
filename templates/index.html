@@ -3,47 +3,65 @@
 {% block title %}Hotdog Classifier - Is it a hotdog?{% endblock %}
 
 {% block content %}
-<header class="header">
-    <h1>🌭 Hotdog Classifier 🌭</h1>
-    <p class="subtitle">Upload an image to check if it contains a hotdog</p>
-</header>
+<div class="container">
+    <header class="header">
+        <h1>🌭 Hotdog Classifier 🌭</h1>
+        <p class="subtitle">Upload or provide a URL to check if an image contains a hotdog</p>
+    </header>
 
-<main class="main-content">
-    <div class="upload-container">
-        <form id="upload-form" enctype="multipart/form-data">
+    <main class="main-content">
+        <!-- File Upload Section -->
+        <div class="upload-section">
+            <h2>Option 1: Upload Image</h2>
             <div class="drop-zone">
-                <span class="drop-zone__prompt">Drop image here or click to upload</span>
+                <span class="drop-zone__prompt">Drop file here or click to upload</span>
                 <input type="file" name="file" class="drop-zone__input" accept="image/*">
             </div>
-        </form>
-        <div class="url-container">
-            <form id="url-form">
-                <input type="url" name="url" placeholder="Or enter image URL here" class="url-input">
-                <button type="submit">Analyze URL</button>
+        </div>
+
+        <!-- URL Input Section -->
+        <div class="url-section">
+            <h2>Option 2: Image URL</h2>
+            <form id="url-form" class="url-form">
+                <div class="url-input-group">
+                    <input type="url" 
+                           id="url-input" 
+                           name="url" 
+                           class="url-input" 
+                           placeholder="Paste an image URL here"
+                           required>
+                    <button type="submit" class="url-submit">Analyze</button>
+                </div>
             </form>
         </div>
-    </div>
 
-    <div id="preview-container" class="hidden">
-        <h3>Preview:</h3>
-        <img id="image-preview" src="" alt="Image preview">
-    </div>
+        <!-- Preview Section -->
+        <div id="preview-container" class="preview-container hidden">
+            <h3>Image Preview</h3>
+            <div class="preview-wrapper">
+                <img id="image-preview" src="" alt="Image preview">
+            </div>
+        </div>
 
-    <div id="result-container" class="hidden">
-        <h2 id="result-text"></h2>
-    </div>
+        <!-- Result Section -->
+        <div id="result-container" class="result-container hidden">
+            <h2 id="result-text" class="result-text"></h2>
+        </div>
 
-    <div id="loading-spinner" class="hidden">
-        <div class="spinner"></div>
-        <p>Analyzing image... 🔍</p>
-    </div>
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="loading-spinner hidden">
+            <div class="spinner"></div>
+            <p>Analyzing image... 🔍</p>
+        </div>
 
-    <div id="error-container" class="hidden">
-        <p id="error-text" class="error-message"></p>
-    </div>
-</main>
+        <!-- Error Messages -->
+        <div id="error-container" class="error-container hidden">
+            <p id="error-text" class="error-message"></p>
+        </div>
+    </main>
 
-<footer class="footer">
-    <p>Powered by OpenRouter API & GPT-4 Vision</p>
-</footer>
+    <footer class="footer">
+        <p>Powered by OpenRouter API & GPT-4 Vision</p>
+    </footer>
+</div>
 {% endblock %}

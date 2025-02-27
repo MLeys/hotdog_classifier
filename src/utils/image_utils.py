@@ -1,5 +1,6 @@
 """
 Image processing utilities for the Hotdog Classifier.
+Handles both local files and URLs.
 """
 
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 import base64
 import io
+from urllib.parse import urlparse
 from src.config import ALLOWED_EXTENSIONS, MAX_CONTENT_LENGTH
 from src.utils.logger import setup_logger
 
@@ -15,17 +17,19 @@ logger = setup_logger(__name__)
 
 def is_valid_url(url: str) -> bool:
     """
-    Check if string is a valid URL.
+    Validate if a string is a proper URL.
     
     Args:
-        url: String to check
+        url: String to validate
     
     Returns:
         bool: True if valid URL
     """
     try:
-        return url.startswith(('http://', 'https://'))
-    except:
+        result = urlparse(url)
+        return all([result.scheme in ('http', 'https'), result.netloc])
+    except Exception as e:
+        logger.error(f"URL validation error: {str(e)}")
         return False
 
 def download_image(url: str) -> bytes:
@@ -42,11 +46,22 @@ def download_image(url: str) -> bytes:
         Exception: If download fails
     """
     try:
+        logger.debug(f"Downloading image from URL: {url}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()
+        
+        # Check content type
+        content_type = response.headers.get('content-type', '')
+        if not content_type.startswith('image/'):
+            raise ValueError(f"Invalid content type: {content_type}")
+            
         return response.content
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to download image: {str(e)}")
+        raise ValueError(f"Failed to download image: {str(e)}")
     except Exception as e:
-        logger.error(f"Failed to download image from URL: {str(e)}")
+        logger.error(f"Unexpected error downloading image: {str(e)}")
         raise
 
 def validate_image_data(image_data: bytes) -> bool:
@@ -68,9 +83,15 @@ def validate_image_data(image_data: bytes) -> bool:
             raise ValueError(f"Image too large. Maximum size: {MAX_CONTENT_LENGTH} bytes")
 
         # Verify it's a valid image
-        img = Image.open(io.BytesIO(image_data))
-        img.verify()
+        with Image.open(io.BytesIO(image_data)) as img:
+            img.verify()
+            
+            # Convert to RGB if needed
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGB')
+            
         return True
+        
     except Exception as e:
         logger.error(f"Image validation failed: {str(e)}")
         raise ValueError(f"Invalid image: {str(e)}")
@@ -141,3 +162,18 @@ def get_image_data(source: str | Path | bytes) -> str:
     except Exception as e:
         logger.error(f"Failed to process image: {str(e)}")
         raise
+
+def cleanup_image(filepath: str | Path) -> None:
+    """
+    Safely remove temporary image file.
+    
+    Args:
+        filepath: Path to the image file to remove
+    """
+    try:
+        path = Path(filepath)
+        if path.exists():
+            path.unlink()
+            logger.debug(f"Removed temporary file: {path}")
+    except Exception as e:
+        logger.error(f"Error cleaning up image file: {str(e)}")

@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from src.classifier import HotdogClassifier
 from src.utils.logger import setup_logger
-from src.utils.image_utils import cleanup_image
+from src.utils.image_utils import cleanup_image, is_valid_url, download_image
 import src.config as config
 
 # Initialize Flask application
@@ -33,27 +33,38 @@ def index():
 
 @app.route('/classify', methods=['POST'])
 def classify_image():
-    """Handle image classification requests."""
+    """
+    Handle image classification requests.
+    Accepts either file uploads or image URLs.
+    """
     logger.info("Received classification request")
     
     try:
-        # Check for URL in request
+        # Handle URL input
         if 'url' in request.form:
-            image_url = request.form['url']
+            image_url = request.form['url'].strip()
             logger.info(f"Processing image URL: {image_url}")
             
+            if not is_valid_url(image_url):
+                logger.warning(f"Invalid URL provided: {image_url}")
+                return jsonify({'error': 'Invalid URL provided'}), 400
+            
             try:
+                # Classify directly from URL
                 result = classifier.classify_image(image_url)
+                logger.info(f"URL classification result: {result}")
                 return jsonify({
                     'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
                 })
+                
             except Exception as e:
                 logger.error(f"Error processing URL: {str(e)}")
-                return jsonify({'error': str(e)}), 400
+                return jsonify({'error': f'Error processing URL: {str(e)}'}), 400
 
         # Handle file upload
         elif 'file' in request.files:
             file = request.files['file']
+            
             if file.filename == '':
                 logger.warning("No selected file")
                 return jsonify({'error': 'No file selected'}), 400
@@ -62,31 +73,52 @@ def classify_image():
                 logger.warning(f"Invalid file type: {file.filename}")
                 return jsonify({'error': 'Invalid file type'}), 400
             
-            # Save and process file
-            filename = secure_filename(file.filename)
-            filepath = Path(app.config['UPLOAD_FOLDER']) / filename
-            
-            logger.debug(f"Saving uploaded file to: {filepath}")
-            file.save(filepath)
-            
             try:
+                # Save file temporarily
+                filename = secure_filename(file.filename)
+                filepath = Path(app.config['UPLOAD_FOLDER']) / filename
+                logger.debug(f"Saving uploaded file to: {filepath}")
+                file.save(filepath)
+                
+                # Classify image
                 result = classifier.classify_image(filepath)
+                logger.info(f"File classification result: {result}")
+                
                 return jsonify({
                     'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
                 })
+                
+            except Exception as e:
+                logger.error(f"Error processing file: {str(e)}")
+                return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+                
             finally:
-                # Clean up uploaded file
-                if filepath.exists():
-                    filepath.unlink()
-                    logger.debug(f"Removed temporary file: {filepath}")
-        
+                # Clean up temporary file
+                cleanup_image(filepath)
+                
         else:
             logger.warning("No file or URL provided")
             return jsonify({'error': 'No image provided'}), 400
             
     except Exception as e:
         logger.error(f"Unexpected server error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint to verify API connectivity."""
+    try:
+        api_status = classifier.test_api_connection()
+        return jsonify({
+            'status': 'healthy' if api_status else 'unhealthy',
+            'api_connection': api_status
+        })
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Log application startup

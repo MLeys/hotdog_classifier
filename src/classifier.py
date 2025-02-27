@@ -6,7 +6,7 @@ import requests
 from pathlib import Path
 import logging
 from src.utils.logger import setup_logger
-from src.utils.image_utils import encode_image
+from src.utils.image_utils import get_image_data
 import src.config as config
 
 # Initialize logger
