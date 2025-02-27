@@ -1,12 +1,14 @@
 /**
  * Main JavaScript file for the Hotdog Classifier application.
- * Handles file uploads, drag and drop, and API interactions.
+ * Handles file uploads, URL inputs, and API interactions.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const dropZone = document.querySelector('.drop-zone');
     const fileInput = dropZone.querySelector('.drop-zone__input');
+    const urlForm = document.getElementById('url-form');
+    const urlInput = document.getElementById('url-input');
     const previewContainer = document.getElementById('preview-container');
     const imagePreview = document.getElementById('image-preview');
     const resultContainer = document.getElementById('result-container');
@@ -16,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorText = document.getElementById('error-text');
 
     /**
-     * Show error message
+     * Show error message with auto-hide
      * @param {string} message - Error message to display
      */
     function showError(message) {
@@ -37,112 +39,152 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Handle file input change event
+     * Update preview image
+     * @param {string} src - Image source (URL or Data URL)
      */
+    function updatePreview(src) {
+        previewContainer.classList.remove('hidden');
+        imagePreview.src = src;
+        imagePreview.onload = () => {
+            previewContainer.scrollIntoView({ behavior: 'smooth' });
+        };
+        imagePreview.onerror = () => {
+            showError('Failed to load image preview');
+            previewContainer.classList.add('hidden');
+        };
+    }
+
+    /**
+     * Validate image URL format
+     * @param {string} url - URL to validate
+     * @returns {boolean} - True if valid image URL
+     */
+    function isValidImageUrl(url) {
+        return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+    }
+
+    /**
+     * Classify image and handle response
+     * @param {FormData} formData - Form data containing file or URL
+     */
+    async function classifyImage(formData) {
+        try {
+            loadingSpinner.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+
+            const response = await fetch('/classify', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Classification failed');
+            }
+
+            loadingSpinner.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            resultText.textContent = data.result;
+            resultText.style.color = data.result.includes('Hotdog') ? 
+                'var(--success-color)' : 'var(--error-color)';
+
+        } catch (error) {
+            loadingSpinner.classList.add('hidden');
+            showError(error.message || 'Error classifying image');
+            console.error('Error:', error);
+        }
+    }
+
+    /**
+     * Handle file selection
+     * @param {File} file - Selected file
+     */
+    function handleFile(file) {
+        resetDisplay();
+
+        if (!file.type.startsWith('image/')) {
+            showError('Please upload an image file!');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updatePreview(e.target.result);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            classifyImage(formData);
+        };
+        reader.onerror = () => {
+            showError('Error reading file');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Handle URL submission
+     * @param {string} url - Image URL
+     */
+    async function handleUrl(url) {
+        resetDisplay();
+
+        if (!isValidImageUrl(url)) {
+            showError('Please enter a valid direct image URL');
+            return;
+        }
+
+        try {
+            updatePreview(url);
+
+            const formData = new FormData();
+            formData.append('url', url);
+            await classifyImage(formData);
+
+        } catch (error) {
+            showError('Error processing image URL');
+            console.error('Error:', error);
+        }
+    }
+
+    // File Input Event Listeners
     fileInput.addEventListener('change', (e) => {
         if (fileInput.files.length) {
-            updateThumbnail(fileInput.files[0]);
+            handleFile(fileInput.files[0]);
         }
     });
 
-    /**
-     * Handle click on drop zone
-     */
-    dropZone.addEventListener('click', () => {
-        fileInput.click();
-    });
+    // Drop Zone Event Listeners
+    dropZone.addEventListener('click', () => fileInput.click());
 
-    /**
-     * Handle drag over event
-     */
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('drop-zone--over');
     });
 
-    /**
-     * Handle drag leave and drag end events
-     */
     ['dragleave', 'dragend'].forEach((type) => {
         dropZone.addEventListener(type, () => {
             dropZone.classList.remove('drop-zone--over');
         });
     });
 
-    /**
-     * Handle drop event
-     */
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drop-zone--over');
 
         if (e.dataTransfer.files.length) {
-            fileInput.files = e.dataTransfer.files;
-            updateThumbnail(e.dataTransfer.files[0]);
+            handleFile(e.dataTransfer.files[0]);
         }
     });
 
-    /**
-     * Update thumbnail preview and initiate classification
-     * @param {File} file - The uploaded file
-     */
-    function updateThumbnail(file) {
-        resetDisplay();
+    // URL Form Event Listener
+    urlForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const url = urlInput.value.trim();
+        
+        if (!url) return;
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            showError('Please upload an image file!');
-            return;
-        }
-
-        // Show preview
-        previewContainer.classList.remove('hidden');
-
-        // Create preview
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-            imagePreview.src = reader.result;
-            uploadAndClassify(file);
-        };
-    }
-
-    /**
-     * Upload and classify the image
-     * @param {File} file - The file to classify
-     */
-    function uploadAndClassify(file) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // Show loading spinner
-        loadingSpinner.classList.remove('hidden');
-
-        // Send classification request
-        fetch('/classify', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(data => {
-                    throw new Error(data.error || 'Classification failed');
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            loadingSpinner.classList.add('hidden');
-            resultContainer.classList.remove('hidden');
-            
-            resultText.textContent = data.result;
-            resultText.style.color = data.result.includes('Hotdog') ? 
-                'var(--success-color)' : 'var(--error-color)';
-        })
-        .catch(error => {
-            loadingSpinner.classList.add('hidden');
-            showError(error.message || 'Error classifying image');
-            console.error('Error:', error);
-        });
-    }
+        await handleUrl(url);
+        urlInput.value = ''; // Clear input after submission
+    });
 });

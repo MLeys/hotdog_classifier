@@ -10,29 +10,35 @@
     </header>
 
     <main class="main-content">
-        <!-- File Upload Section -->
-        <div class="upload-section">
-            <h2>Option 1: Upload Image</h2>
-            <div class="drop-zone">
-                <span class="drop-zone__prompt">Drop file here or click to upload</span>
-                <input type="file" name="file" class="drop-zone__input" accept="image/*">
-            </div>
-        </div>
-
-        <!-- URL Input Section -->
-        <div class="url-section">
-            <h2>Option 2: Image URL</h2>
-            <form id="url-form" class="url-form">
-                <div class="url-input-group">
-                    <input type="url" 
-                           id="url-input" 
-                           name="url" 
-                           class="url-input" 
-                           placeholder="Paste an image URL here"
-                           required>
-                    <button type="submit" class="url-submit">Analyze</button>
+        <!-- Input Methods -->
+        <div class="input-section">
+            <!-- File Upload Section -->
+            <div class="upload-section">
+                <h2>Option 1: Upload Image</h2>
+                <div class="drop-zone">
+                    <span class="drop-zone__prompt">Drop file here or click to upload</span>
+                    <input type="file" name="file" class="drop-zone__input" accept="image/*">
                 </div>
-            </form>
+            </div>
+
+            <!-- URL Input Section -->
+            <div class="url-section">
+                <h2>Option 2: Image URL</h2>
+                <form id="url-form" class="url-form">
+                    <div class="url-input-group">
+                        <input type="url" 
+                               id="url-input" 
+                               name="url" 
+                               class="url-input" 
+                               placeholder="Enter a direct image URL (e.g., https://example.com/image.jpg)"
+                               pattern="https?://.*\.(jpg|jpeg|png|webp|gif)$"
+                               title="Please enter a valid image URL"
+                               required>
+                        <button type="submit" class="url-submit">Analyze</button>
+                    </div>
+                    <small class="url-help">URL must point directly to an image file (ending in .jpg, .png, etc.)</small>
+                </form>
+            </div>
         </div>
 
         <!-- Preview Section -->
@@ -62,6 +68,7 @@
 
     <footer class="footer">
         <p>Powered by OpenRouter API & GPT-4 Vision</p>
+        <p class="version">Version 1.0.0</p>
     </footer>
 </div>
 {% endblock %}

@@ -1,3 +1,4 @@
+/* Variables */
 :root {
     --primary-color: #0088cc;
     --secondary-color: #005580;
@@ -10,7 +11,7 @@
     --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Base styles */
+/* Reset and Base Styles */
 * {
     margin: 0;
     padding: 0;
@@ -25,13 +26,14 @@ body {
     min-height: 100vh;
 }
 
+/* Layout */
 .container {
     max-width: 800px;
     margin: 0 auto;
     padding: 2rem;
 }
 
-/* Header styles */
+/* Header Styles */
 .header {
     text-align: center;
     margin-bottom: 3rem;
@@ -48,7 +50,7 @@ body {
     color: #666;
 }
 
-/* Main content sections */
+/* Main Content */
 .main-content {
     background: white;
     padding: 2rem;
@@ -56,11 +58,18 @@ body {
     box-shadow: var(--box-shadow);
 }
 
+/* Input Section Styles */
+.input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
 .upload-section,
 .url-section {
-    margin-bottom: 2rem;
-    padding: 1.5rem;
     background: var(--background-color);
+    padding: 1.5rem;
     border-radius: var(--border-radius);
 }
 
@@ -70,7 +79,7 @@ h2 {
     color: var(--secondary-color);
 }
 
-/* Drop zone styles */
+/* Drop Zone Styles */
 .drop-zone {
     width: 100%;
     height: 200px;
@@ -101,7 +110,7 @@ h2 {
     font-size: 1.1rem;
 }
 
-/* URL input styles */
+/* URL Input Styles */
 .url-form {
     width: 100%;
 }
@@ -109,6 +118,7 @@ h2 {
 .url-input-group {
     display: flex;
     gap: 10px;
+    margin-bottom: 0.5rem;
 }
 
 .url-input {
@@ -133,7 +143,14 @@ h2 {
     background-color: var(--secondary-color);
 }
 
-/* Preview styles */
+.url-help {
+    color: #666;
+    font-size: 0.9em;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+/* Preview Styles */
 .preview-container {
     margin: 2rem 0;
     text-align: center;
@@ -153,7 +170,7 @@ h2 {
     margin: 0 auto;
 }
 
-/* Result styles */
+/* Result Styles */
 .result-container {
     margin: 2rem 0;
     text-align: center;
@@ -167,7 +184,7 @@ h2 {
     font-weight: bold;
 }
 
-/* Loading spinner */
+/* Loading Spinner */
 .loading-spinner {
     text-align: center;
     margin: 2rem 0;
@@ -189,7 +206,7 @@ h2 {
     100% { transform: rotate(360deg); }
 }
 
-/* Error styles */
+/* Error Styles */
 .error-container {
     margin: 1rem 0;
     text-align: center;
@@ -203,7 +220,7 @@ h2 {
     border: 1px solid var(--error-color);
 }
 
-/* Footer styles */
+/* Footer Styles */
 .footer {
     text-align: center;
     margin-top: 3rem;
@@ -211,12 +228,17 @@ h2 {
     color: #666;
 }
 
-/* Utility classes */
+.version {
+    font-size: 0.8em;
+    margin-top: 0.5rem;
+}
+
+/* Utility Classes */
 .hidden {
     display: none !important;
 }
 
-/* Responsive design */
+/* Responsive Design */
 @media (max-width: 768px) {
     .container {
         padding: 1rem;
@@ -236,5 +258,13 @@ h2 {
 
     .url-submit {
         width: 100%;
+    }
+
+    .preview-container {
+        margin: 1rem 0;
+    }
+
+    #image-preview {
+        max-height: 300px;
     }
 }

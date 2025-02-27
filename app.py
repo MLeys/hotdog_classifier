@@ -1,5 +1,6 @@
 """
-Main Flask application for the Hotdog Classifier.
+Main Flask application for the Hotdog Classifier web interface.
+Handles routes, image uploads, and URL classification requests.
 """
 
 import os
@@ -8,7 +9,11 @@ from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from src.classifier import HotdogClassifier
 from src.utils.logger import setup_logger
-from src.utils.image_utils import cleanup_image, is_valid_url, download_image
+from src.utils.image_utils import (
+    is_valid_url, 
+    download_image, 
+    cleanup_image
+)
 import src.config as config
 
 # Initialize Flask application
@@ -16,10 +21,10 @@ app = Flask(__name__)
 logger = setup_logger(__name__)
 
 # Configure upload folder
-if not os.path.exists(config.UPLOAD_FOLDER):
-    os.makedirs(config.UPLOAD_FOLDER)
+upload_dir = Path(config.UPLOAD_FOLDER)
+upload_dir.mkdir(exist_ok=True)
 
-app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = str(upload_dir)
 app.config['MAX_CONTENT_LENGTH'] = config.MAX_CONTENT_LENGTH
 
 # Initialize classifier
@@ -35,7 +40,7 @@ def index():
 def classify_image():
     """
     Handle image classification requests.
-    Accepts either file uploads or image URLs.
+    Accepts both file uploads and image URLs.
     """
     logger.info("Received classification request")
     
@@ -50,13 +55,27 @@ def classify_image():
                 return jsonify({'error': 'Invalid URL provided'}), 400
             
             try:
-                # Classify directly from URL
-                result = classifier.classify_image(image_url)
-                logger.info(f"URL classification result: {result}")
-                return jsonify({
-                    'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
-                })
+                # Download and classify image from URL
+                image_data = download_image(image_url)
                 
+                # Save temporarily
+                temp_path = Path(app.config['UPLOAD_FOLDER']) / 'temp_url_image.jpg'
+                with open(temp_path, 'wb') as f:
+                    f.write(image_data)
+                
+                try:
+                    # Classify image
+                    result = classifier.classify_image(temp_path)
+                    logger.info(f"URL classification result: {result}")
+                    
+                    return jsonify({
+                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
+                    })
+                    
+                finally:
+                    # Clean up temporary file
+                    cleanup_image(temp_path)
+                    
             except Exception as e:
                 logger.error(f"Error processing URL: {str(e)}")
                 return jsonify({'error': f'Error processing URL: {str(e)}'}), 400
@@ -74,9 +93,10 @@ def classify_image():
                 return jsonify({'error': 'Invalid file type'}), 400
             
             try:
-                # Save file temporarily
+                # Save and process file
                 filename = secure_filename(file.filename)
                 filepath = Path(app.config['UPLOAD_FOLDER']) / filename
+                
                 logger.debug(f"Saving uploaded file to: {filepath}")
                 file.save(filepath)
                 
@@ -93,7 +113,7 @@ def classify_image():
                 return jsonify({'error': f'Error processing file: {str(e)}'}), 500
                 
             finally:
-                # Clean up temporary file
+                # Clean up uploaded file
                 cleanup_image(filepath)
                 
         else:
