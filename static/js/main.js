@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorSection = document.getElementById('error-section');
     const errorText = document.getElementById('error-text');
 
-    // DOM Elements - Stats
+    // DOM Elements - Stats and History
     const totalCount = document.getElementById('total-count');
     const hotdogCount = document.getElementById('hotdog-count');
     const hotdogRate = document.getElementById('hotdog-rate');
@@ -85,15 +85,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Show error message
-     * @param {string} message Error message to display
+     * Show error message with details if available
+     * @param {string|Object} error - Error message or object
      */
-    function showError(message) {
-        errorText.textContent = message;
+    function showError(error) {
+        let message = '';
+        let details = '';
+
+        if (typeof error === 'string') {
+            message = error;
+        } else if (error.error) {
+            message = error.error;
+            if (error.details) {
+                details = `\nDetails: ${JSON.stringify(error.details, null, 2)}`;
+            }
+        } else {
+            message = 'An unexpected error occurred';
+        }
+
+        errorText.textContent = message + details;
         errorSection.classList.remove('hidden');
+        
+        // Scroll error into view
+        errorSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        // Auto-hide after 8 seconds
         setTimeout(() => {
             errorSection.classList.add('hidden');
-        }, 5000);
+        }, 8000);
     }
 
     /**
@@ -123,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Format and validate image URL
+     * Format and validate image URL, handling various URL formats
      * @param {string} url URL to format
      * @returns {string|null} Formatted URL or null if invalid
      */
@@ -133,13 +152,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return null;
             }
 
+            // Display the URL being tried
+            urlDisplay.textContent = `Processing: ${url}`;
+            urlDisplay.classList.remove('hidden');
+
+            // For Bing image URLs, use as is
+            if (url.includes('bing.com/th/id/')) {
+                return url;
+            }
+
+            // For other URLs, check and handle image extensions
             let cleanUrl = url.split('?')[0].split('#')[0];
             const hasImageExt = /\.(jpg|jpeg|png|gif|webp)$/i.test(cleanUrl);
 
             if (!hasImageExt) {
                 cleanUrl = cleanUrl.replace(/\/$/, '') + '.jpg';
-                urlDisplay.textContent = `Trying: ${cleanUrl}`;
-                urlDisplay.classList.remove('hidden');
+                urlDisplay.textContent = `Trying modified URL: ${cleanUrl}`;
             }
 
             return cleanUrl;
@@ -150,7 +178,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Send classification request to server
+     * Handle API response
+     * @param {Response} response - Fetch API response
+     * @returns {Promise} - Parsed response
+     */
+    async function handleResponse(response) {
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('API Error:', {
+                status: response.status,
+                statusText: response.statusText,
+                data: data
+            });
+            
+            throw new Error(data.error || 'Classification failed');
+        }
+        
+        return data;
+    }
+
+    /**
+     * Classify image and handle response
      * @param {FormData} formData Form data containing file or URL
      */
     async function classifyImage(formData) {
@@ -163,11 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Classification failed');
-            }
-
+            const data = await handleResponse(response);
+            
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
             resultText.textContent = data.result;
@@ -186,14 +232,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             loadingSection.classList.add('hidden');
-            showError(error.message || 'Error classifying image');
-            console.error('Error:', error);
+            showError(error);
+            console.error('Classification error:', error);
         }
     }
 
     /**
-     * Handle file upload
-     * @param {File} file Uploaded file
+     * Handle file selection
+     * @param {File} file Selected file
      */
     function handleFile(file) {
         resetDisplay();
@@ -236,16 +282,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 const testImg = new Image();
                 testImg.onload = () => resolve(formattedUrl);
                 testImg.onerror = () => reject('Failed to load image');
+                
+                // Add crossOrigin attribute to handle CORS
+                testImg.crossOrigin = "anonymous";
                 testImg.src = formattedUrl;
             });
 
             loadingSection.classList.remove('hidden');
             await imgPromise;
             
-            updatePreview(formattedUrl);
-
+            // Convert image to base64 if it's a direct URL
             const formData = new FormData();
-            formData.append('url', formattedUrl);
+            
+            try {
+                // Try to convert to base64 first
+                const response = await fetch(formattedUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                
+                const base64Promise = new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject('Failed to convert image');
+                });
+                
+                reader.readAsDataURL(blob);
+                const base64Data = await base64Promise;
+                
+                formData.append('base64', base64Data);
+            } catch (error) {
+                // Fallback to direct URL if base64 conversion fails
+                formData.append('url', formattedUrl);
+            }
+
+            updatePreview(formattedUrl);
             await classifyImage(formData);
 
         } catch (error) {

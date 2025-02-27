@@ -1,6 +1,5 @@
 """
 Image processing utilities for the Hotdog Classifier.
-Handles image validation, processing, and encoding.
 """
 
 import os
@@ -15,6 +14,42 @@ from src.config import ALLOWED_EXTENSIONS, MAX_CONTENT_LENGTH
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+def validate_image_size(file_size: int, max_size: int) -> bool:
+    """
+    Validate image file size.
+    
+    Args:
+        file_size: Size of the image in bytes
+        max_size: Maximum allowed size in bytes
+        
+    Returns:
+        bool: True if valid size
+        
+    Raises:
+        ValueError: If file is too large
+    """
+    if file_size > max_size:
+        raise ValueError(f"Image file too large. Maximum size allowed is {max_size/1024/1024:.1f}MB")
+    return True
+
+def validate_image_format(mime_type: str) -> bool:
+    """
+    Validate image MIME type.
+    
+    Args:
+        mime_type: MIME type of the image
+        
+    Returns:
+        bool: True if valid format
+        
+    Raises:
+        ValueError: If format is not supported
+    """
+    allowed_types = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
+    if mime_type not in allowed_types:
+        raise ValueError(f"Unsupported image format. Allowed formats: {', '.join(t.split('/')[-1] for t in allowed_types)}")
+    return True
 
 def is_valid_url(url: str) -> bool:
     """
@@ -41,31 +76,6 @@ def is_valid_url(url: str) -> bool:
         logger.error(f"URL validation error: {str(e)}")
         return False
 
-def is_base64_image(data: str) -> bool:
-    """
-    Check if string is a valid base64 encoded image.
-    
-    Args:
-        data: Base64 string to check
-    
-    Returns:
-        bool: True if valid base64 image
-    """
-    try:
-        if not data.startswith('data:image/'):
-            return False
-        
-        # Extract the base64 content
-        content = data.split(',')[1]
-        
-        # Try to decode
-        image_data = base64.b64decode(content)
-        img = Image.open(io.BytesIO(image_data))
-        img.verify()
-        return True
-    except:
-        return False
-
 def download_image(url: str) -> bytes:
     """
     Download image from URL, trying different extensions if needed.
@@ -77,10 +87,10 @@ def download_image(url: str) -> bytes:
         bytes: Image data
     """
     extensions = ['', '.jpg', '.jpeg', '.png', '.gif', '.webp']
-    base_url = url.split('?')[0].split('#')[0]  # Remove query params and hash
+    base_url = url.split('?')[0].split('#')[0]
     
     if any(base_url.lower().endswith(ext) for ext in extensions[1:]):
-        extensions = ['']  # If URL already has extension, don't try others
+        extensions = ['']
     
     last_error = None
     for ext in extensions:
@@ -99,12 +109,7 @@ def download_image(url: str) -> bytes:
             if not content_type.startswith('image/'):
                 continue
                 
-            # Verify image data
-            img_data = response.content
-            img = Image.open(io.BytesIO(img_data))
-            img.verify()
-            
-            return img_data
+            return response.content
             
         except Exception as e:
             last_error = e
@@ -113,9 +118,31 @@ def download_image(url: str) -> bytes:
     
     raise ValueError(f"Failed to download image: {str(last_error)}")
 
+def is_base64_image(data: str) -> bool:
+    """
+    Check if string is a valid base64 encoded image.
+    
+    Args:
+        data: Base64 string to check
+    
+    Returns:
+        bool: True if valid base64 image
+    """
+    try:
+        if not data.startswith('data:image/'):
+            return False
+        
+        content = data.split(',')[1]
+        image_data = base64.b64decode(content)
+        img = Image.open(io.BytesIO(image_data))
+        img.verify()
+        return True
+    except:
+        return False
+
 def save_base64_image(data: str, upload_folder: str) -> Path:
     """
-    Save base64 image data to a temporary file.
+    Save base64 image data to a file.
     
     Args:
         data: Base64 image data
@@ -125,14 +152,11 @@ def save_base64_image(data: str, upload_folder: str) -> Path:
         Path: Path to saved file
     """
     try:
-        # Extract the base64 content and image type
         content_type = data.split(';')[0].split('/')[1]
         content = data.split(',')[1]
         
-        # Decode base64
         image_data = base64.b64decode(content)
         
-        # Save to temporary file
         temp_path = Path(upload_folder) / f'temp_base64.{content_type}'
         with open(temp_path, 'wb') as f:
             f.write(image_data)
