@@ -1,13 +1,14 @@
 """
 Image processing utilities for the Hotdog Classifier.
-Handles both local files and URLs.
+Handles image validation, processing, and encoding.
 """
 
 import os
+import re
+import base64
 import requests
 from pathlib import Path
 from PIL import Image
-import base64
 import io
 from urllib.parse import urlparse
 from src.config import ALLOWED_EXTENSIONS, MAX_CONTENT_LENGTH
@@ -26,141 +27,120 @@ def is_valid_url(url: str) -> bool:
         bool: True if valid URL
     """
     try:
+        # Check if it's a data URL
+        if url.startswith('data:'):
+            return False
+            
         result = urlparse(url)
-        return all([result.scheme in ('http', 'https'), result.netloc])
+        return all([
+            result.scheme in ('http', 'https'),
+            result.netloc,
+            result.path
+        ])
     except Exception as e:
         logger.error(f"URL validation error: {str(e)}")
         return False
 
+def is_base64_image(data: str) -> bool:
+    """
+    Check if string is a valid base64 encoded image.
+    
+    Args:
+        data: Base64 string to check
+    
+    Returns:
+        bool: True if valid base64 image
+    """
+    try:
+        if not data.startswith('data:image/'):
+            return False
+        
+        # Extract the base64 content
+        content = data.split(',')[1]
+        
+        # Try to decode
+        image_data = base64.b64decode(content)
+        img = Image.open(io.BytesIO(image_data))
+        img.verify()
+        return True
+    except:
+        return False
+
 def download_image(url: str) -> bytes:
     """
-    Download image from URL.
+    Download image from URL, trying different extensions if needed.
     
     Args:
         url: Image URL
     
     Returns:
         bytes: Image data
-        
-    Raises:
-        Exception: If download fails
     """
-    try:
-        logger.debug(f"Downloading image from URL: {url}")
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        
-        # Check content type
-        content_type = response.headers.get('content-type', '')
-        if not content_type.startswith('image/'):
-            raise ValueError(f"Invalid content type: {content_type}")
+    extensions = ['', '.jpg', '.jpeg', '.png', '.gif', '.webp']
+    base_url = url.split('?')[0].split('#')[0]  # Remove query params and hash
+    
+    if any(base_url.lower().endswith(ext) for ext in extensions[1:]):
+        extensions = ['']  # If URL already has extension, don't try others
+    
+    last_error = None
+    for ext in extensions:
+        try:
+            if ext:
+                test_url = re.sub(r'\.[^.]+$', '', base_url) + ext
+            else:
+                test_url = base_url
+                
+            logger.debug(f"Trying URL: {test_url}")
+            response = requests.get(test_url, timeout=10)
+            response.raise_for_status()
             
-        return response.content
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to download image: {str(e)}")
-        raise ValueError(f"Failed to download image: {str(e)}")
-    except Exception as e:
-        logger.error(f"Unexpected error downloading image: {str(e)}")
-        raise
-
-def validate_image_data(image_data: bytes) -> bool:
-    """
-    Validate image data.
-    
-    Args:
-        image_data: Image bytes to validate
-    
-    Returns:
-        bool: True if valid
-        
-    Raises:
-        ValueError: If validation fails
-    """
-    try:
-        # Check file size
-        if len(image_data) > MAX_CONTENT_LENGTH:
-            raise ValueError(f"Image too large. Maximum size: {MAX_CONTENT_LENGTH} bytes")
-
-        # Verify it's a valid image
-        with Image.open(io.BytesIO(image_data)) as img:
+            # Verify it's an image
+            content_type = response.headers.get('content-type', '')
+            if not content_type.startswith('image/'):
+                continue
+                
+            # Verify image data
+            img_data = response.content
+            img = Image.open(io.BytesIO(img_data))
             img.verify()
             
-            # Convert to RGB if needed
-            if img.mode not in ('RGB', 'RGBA'):
-                img = img.convert('RGB')
+            return img_data
             
-        return True
-        
-    except Exception as e:
-        logger.error(f"Image validation failed: {str(e)}")
-        raise ValueError(f"Invalid image: {str(e)}")
+        except Exception as e:
+            last_error = e
+            logger.debug(f"Failed to download from {test_url}: {str(e)}")
+            continue
+    
+    raise ValueError(f"Failed to download image: {str(last_error)}")
 
-def encode_image_data(image_data: bytes) -> str:
+def save_base64_image(data: str, upload_folder: str) -> Path:
     """
-    Encode image data to base64.
+    Save base64 image data to a temporary file.
     
     Args:
-        image_data: Image bytes to encode
+        data: Base64 image data
+        upload_folder: Directory to save the file
     
     Returns:
-        str: Base64 encoded image
+        Path: Path to saved file
     """
     try:
-        return base64.b64encode(image_data).decode('utf-8')
-    except Exception as e:
-        logger.error(f"Failed to encode image: {str(e)}")
-        raise
-
-def get_image_data(source: str | Path | bytes) -> str:
-    """
-    Get base64 encoded image data from various sources.
-    
-    Args:
-        source: Image source (URL, file path, or bytes)
-    
-    Returns:
-        str: Base64 encoded image
+        # Extract the base64 content and image type
+        content_type = data.split(';')[0].split('/')[1]
+        content = data.split(',')[1]
         
-    Raises:
-        ValueError: If source is invalid or processing fails
-    """
-    logger.debug(f"Processing image from source type: {type(source)}")
-    
-    try:
-        # Handle URLs
-        if isinstance(source, str) and is_valid_url(source):
-            logger.debug(f"Downloading image from URL: {source}")
-            image_data = download_image(source)
-            validate_image_data(image_data)
-            return encode_image_data(image_data)
-
-        # Handle file paths
-        elif isinstance(source, (str, Path)):
-            path = Path(source)
-            if not path.exists():
-                raise ValueError(f"File not found: {path}")
-                
-            if path.suffix[1:].lower() not in ALLOWED_EXTENSIONS:
-                raise ValueError(f"Unsupported file type. Allowed: {ALLOWED_EXTENSIONS}")
-                
-            logger.debug(f"Reading image from file: {path}")
-            with open(path, 'rb') as f:
-                image_data = f.read()
-                validate_image_data(image_data)
-                return encode_image_data(image_data)
-
-        # Handle raw bytes
-        elif isinstance(source, bytes):
-            logger.debug("Processing raw image data")
-            validate_image_data(source)
-            return encode_image_data(source)
-
-        else:
-            raise ValueError(f"Unsupported source type: {type(source)}")
-
+        # Decode base64
+        image_data = base64.b64decode(content)
+        
+        # Save to temporary file
+        temp_path = Path(upload_folder) / f'temp_base64.{content_type}'
+        with open(temp_path, 'wb') as f:
+            f.write(image_data)
+            
+        return temp_path
+        
     except Exception as e:
-        logger.error(f"Failed to process image: {str(e)}")
+        logger.error(f"Error saving base64 image: {str(e)}")
         raise
 
 def cleanup_image(filepath: str | Path) -> None:

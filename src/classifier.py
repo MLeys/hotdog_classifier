@@ -6,7 +6,13 @@ import requests
 from pathlib import Path
 import logging
 from src.utils.logger import setup_logger
-from src.utils.image_utils import get_image_data
+from src.utils.image_utils import (
+    is_valid_url,
+    download_image,
+    cleanup_image,
+    is_base64_image,
+    save_base64_image
+)
 import src.config as config
 
 # Initialize logger
@@ -39,26 +45,28 @@ class HotdogClassifier:
             logger.error(f"API connection test failed: {str(e)}")
             return False
 
-    def classify_image(self, image_source: str | Path | bytes) -> bool:
+    def classify_image(self, image_path: str | Path) -> bool:
         """
         Classify if an image contains a hotdog.
         
         Args:
-            image_source: Image source (URL, file path, or bytes)
+            image_path: Path to the image file
         
         Returns:
             bool: True if hotdog, False if not
         """
-        logger.info(f"Starting classification for image source: {image_source}")
+        logger.info(f"Starting classification for image: {image_path}")
         
         try:
             # Test API connection first
             if not self.test_api_connection():
                 raise ConnectionError("Cannot connect to OpenRouter API")
 
-            # Get image data
-            logger.debug("Processing image")
-            base64_image = get_image_data(image_source)
+            # Encode image to base64
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+                import base64
+                base64_image = base64.b64encode(image_data).decode('utf-8')
             
             # Prepare payload
             payload = {
@@ -111,6 +119,14 @@ class HotdogClassifier:
             
             return is_hotdog
 
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error: {str(e)}")
+            raise ConnectionError("Cannot connect to OpenRouter API")
+            
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout error: {str(e)}")
+            raise TimeoutError("API request timed out")
+            
         except Exception as e:
-            logger.error(f"Classification error: {str(e)}")
+            logger.error(f"Unexpected error during classification: {str(e)}")
             raise

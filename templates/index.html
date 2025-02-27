@@ -1,74 +1,95 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotdog Classifier</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌭 Hotdog Classifier 🌭</h1>
+            <p class="subtitle">Upload or provide a URL to check if an image contains a hotdog</p>
+        </header>
 
-{% block title %}Hotdog Classifier - Is it a hotdog?{% endblock %}
-
-{% block content %}
-<div class="container">
-    <header class="header">
-        <h1>🌭 Hotdog Classifier 🌭</h1>
-        <p class="subtitle">Upload or provide a URL to check if an image contains a hotdog</p>
-    </header>
-
-    <main class="main-content">
-        <!-- Input Methods -->
-        <div class="input-section">
-            <!-- File Upload Section -->
-            <div class="upload-section">
-                <h2>Option 1: Upload Image</h2>
-                <div class="drop-zone">
-                    <span class="drop-zone__prompt">Drop file here or click to upload</span>
-                    <input type="file" name="file" class="drop-zone__input" accept="image/*">
+        <main>
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <div class="stat-item">
+                    <span>Total Analyzed:</span>
+                    <span id="total-count">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Hotdogs Found:</span>
+                    <span id="hotdog-count">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Hotdog Rate:</span>
+                    <span id="hotdog-rate">0%</span>
                 </div>
             </div>
 
+            <!-- File Upload Section -->
+            <section class="upload-section">
+                <h2>Option 1: Upload Image</h2>
+                <div class="drop-zone">
+                    <form id="upload-form">
+                        <input type="file" id="file-input" accept="image/*" class="file-input">
+                        <label for="file-input" class="file-label">
+                            Drop file here or click to upload
+                        </label>
+                    </form>
+                </div>
+            </section>
+
             <!-- URL Input Section -->
-            <div class="url-section">
+            <section class="url-section">
                 <h2>Option 2: Image URL</h2>
-                <form id="url-form" class="url-form">
-                    <div class="url-input-group">
-                        <input type="url" 
-                               id="url-input" 
-                               name="url" 
-                               class="url-input" 
-                               placeholder="Enter a direct image URL (e.g., https://example.com/image.jpg)"
-                               pattern="https?://.*\.(jpg|jpeg|png|webp|gif)$"
-                               title="Please enter a valid image URL"
-                               required>
-                        <button type="submit" class="url-submit">Analyze</button>
-                    </div>
-                    <small class="url-help">URL must point directly to an image file (ending in .jpg, .png, etc.)</small>
+                <form id="url-form">
+                    <input type="url" id="url-input" placeholder="Enter image URL" required>
+                    <button type="submit">Analyze</button>
                 </form>
-            </div>
-        </div>
+                <div id="url-display" class="url-display hidden"></div>
+            </section>
 
-        <!-- Preview Section -->
-        <div id="preview-container" class="preview-container hidden">
-            <h3>Image Preview</h3>
-            <div class="preview-wrapper">
-                <img id="image-preview" src="" alt="Image preview">
-            </div>
-        </div>
+            <!-- Preview Section -->
+            <section id="preview-section" class="preview-section hidden">
+                <h2>Image Preview</h2>
+                <div class="preview-container">
+                    <img id="preview-image" src="" alt="Preview">
+                </div>
+            </section>
 
-        <!-- Result Section -->
-        <div id="result-container" class="result-container hidden">
-            <h2 id="result-text" class="result-text"></h2>
-        </div>
+            <!-- Result Section -->
+            <section id="result-section" class="result-section hidden">
+                <div id="result-text" class="result-text"></div>
+            </section>
 
-        <!-- Loading Spinner -->
-        <div id="loading-spinner" class="loading-spinner hidden">
-            <div class="spinner"></div>
-            <p>Analyzing image... 🔍</p>
-        </div>
+            <!-- Loading Section -->
+            <section id="loading-section" class="loading-section hidden">
+                <div class="spinner"></div>
+                <p>Analyzing image...</p>
+            </section>
 
-        <!-- Error Messages -->
-        <div id="error-container" class="error-container hidden">
-            <p id="error-text" class="error-message"></p>
-        </div>
-    </main>
+            <!-- Error Section -->
+            <section id="error-section" class="error-section hidden">
+                <p id="error-text"></p>
+            </section>
+        </main>
 
-    <footer class="footer">
-        <p>Powered by OpenRouter API & GPT-4 Vision</p>
-        <p class="version">Version 1.0.0</p>
-    </footer>
-</div>
-{% endblock %}
+        <footer>
+            <p>Powered by OpenRouter API & GPT-4 Vision</p>
+            <p class="version">Version 1.0.0</p>
+        </footer>
+    </div>
+
+    <!-- History Sidebar -->
+    <aside class="history-sidebar">
+        <h2>Analysis History</h2>
+        <div id="history-list" class="history-list"></div>
+    </aside>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

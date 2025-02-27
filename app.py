@@ -5,14 +5,16 @@ Handles routes, image uploads, and URL classification requests.
 
 import os
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from src.classifier import HotdogClassifier
 from src.utils.logger import setup_logger
 from src.utils.image_utils import (
     is_valid_url, 
     download_image, 
-    cleanup_image
+    cleanup_image,
+    save_base64_image,
+    is_base64_image
 )
 import src.config as config
 
@@ -40,13 +42,33 @@ def index():
 def classify_image():
     """
     Handle image classification requests.
-    Accepts both file uploads and image URLs.
+    Accepts file uploads, URLs, and base64 encoded images.
     """
     logger.info("Received classification request")
     
     try:
+        # Handle base64 image data
+        if 'base64' in request.form:
+            image_data = request.form['base64']
+            if not is_base64_image(image_data):
+                logger.warning("Invalid base64 image data")
+                return jsonify({'error': 'Invalid base64 image data'}), 400
+            
+            try:
+                temp_path = save_base64_image(image_data, app.config['UPLOAD_FOLDER'])
+                result = classifier.classify_image(temp_path)
+                cleanup_image(temp_path)
+                
+                return jsonify({
+                    'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
+                    'source': 'base64'
+                })
+            except Exception as e:
+                logger.error(f"Error processing base64 image: {str(e)}")
+                return jsonify({'error': str(e)}), 400
+
         # Handle URL input
-        if 'url' in request.form:
+        elif 'url' in request.form:
             image_url = request.form['url'].strip()
             logger.info(f"Processing image URL: {image_url}")
             
@@ -55,25 +77,21 @@ def classify_image():
                 return jsonify({'error': 'Invalid URL provided'}), 400
             
             try:
-                # Download and classify image from URL
+                # Download and process URL
                 image_data = download_image(image_url)
-                
-                # Save temporarily
                 temp_path = Path(app.config['UPLOAD_FOLDER']) / 'temp_url_image.jpg'
+                
                 with open(temp_path, 'wb') as f:
                     f.write(image_data)
                 
                 try:
-                    # Classify image
                     result = classifier.classify_image(temp_path)
-                    logger.info(f"URL classification result: {result}")
-                    
                     return jsonify({
-                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
+                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
+                        'source': 'url',
+                        'processed_url': image_url
                     })
-                    
                 finally:
-                    # Clean up temporary file
                     cleanup_image(temp_path)
                     
             except Exception as e:
@@ -93,31 +111,27 @@ def classify_image():
                 return jsonify({'error': 'Invalid file type'}), 400
             
             try:
-                # Save and process file
                 filename = secure_filename(file.filename)
                 filepath = Path(app.config['UPLOAD_FOLDER']) / filename
                 
                 logger.debug(f"Saving uploaded file to: {filepath}")
                 file.save(filepath)
                 
-                # Classify image
-                result = classifier.classify_image(filepath)
-                logger.info(f"File classification result: {result}")
-                
-                return jsonify({
-                    'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
-                })
+                try:
+                    result = classifier.classify_image(filepath)
+                    return jsonify({
+                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
+                        'source': 'file'
+                    })
+                finally:
+                    cleanup_image(filepath)
                 
             except Exception as e:
                 logger.error(f"Error processing file: {str(e)}")
                 return jsonify({'error': f'Error processing file: {str(e)}'}), 500
                 
-            finally:
-                # Clean up uploaded file
-                cleanup_image(filepath)
-                
         else:
-            logger.warning("No file or URL provided")
+            logger.warning("No image data provided")
             return jsonify({'error': 'No image provided'}), 400
             
     except Exception as e:
