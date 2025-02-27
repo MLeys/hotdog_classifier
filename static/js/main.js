@@ -3,6 +3,47 @@
  * Handles file uploads, drag and drop, and API interactions.
  */
 
+// Add URL form handling
+document.getElementById('url-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const url = this.querySelector('input[name="url"]').value;
+    if (!url) return;
+
+    // Show loading spinner
+    loadingSpinner.classList.remove('hidden');
+    resultContainer.classList.add('hidden');
+
+    // Send URL for classification
+    fetch('/classify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `url=${encodeURIComponent(url)}`
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Classification failed');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        loadingSpinner.classList.add('hidden');
+        resultContainer.classList.remove('hidden');
+        resultText.textContent = data.result;
+        resultText.style.color = data.result.includes('Hotdog') ? 
+            'var(--success-color)' : 'var(--error-color)';
+    })
+    .catch(error => {
+        loadingSpinner.classList.add('hidden');
+        showError(error.message || 'Error classifying image');
+    });
+});
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const dropZone = document.querySelector('.drop-zone');

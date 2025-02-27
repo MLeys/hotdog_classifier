@@ -1,9 +1,9 @@
 """
 Image processing utilities for the Hotdog Classifier.
-Handles image validation, processing, and encoding.
 """
 
 import os
+import requests
 from pathlib import Path
 from PIL import Image
 import base64
@@ -13,89 +13,131 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-def validate_image(image_path: str | Path) -> bool:
+def is_valid_url(url: str) -> bool:
     """
-    Validate image file before processing.
+    Check if string is a valid URL.
     
     Args:
-        image_path: Path to the image file
+        url: String to check
     
     Returns:
-        bool: True if image is valid
-    
-    Raises:
-        ValueError: If image validation fails
+        bool: True if valid URL
     """
-    image_path = Path(image_path)
-    logger.debug(f"Validating image: {image_path}")
+    try:
+        return url.startswith(('http://', 'https://'))
+    except:
+        return False
 
-    # Check if file exists
-    if not image_path.exists():
-        logger.error(f"Image file not found: {image_path}")
-        raise ValueError("Image file not found")
-
-    # Check file extension
-    if image_path.suffix[1:].lower() not in ALLOWED_EXTENSIONS:
-        logger.error(f"Unsupported image format: {image_path.suffix}")
-        raise ValueError(f"Unsupported image format. Allowed formats: {ALLOWED_EXTENSIONS}")
-
-    # Check file size
-    file_size = image_path.stat().st_size
-    if file_size > MAX_CONTENT_LENGTH:
-        logger.error(f"Image file too large: {file_size} bytes")
-        raise ValueError(f"Image file too large. Maximum size: {MAX_CONTENT_LENGTH} bytes")
-
-    logger.debug("Image validation successful")
-    return True
-
-def encode_image(image_path: str | Path) -> str:
+def download_image(url: str) -> bytes:
     """
-    Convert image to base64 encoding for API transmission.
+    Download image from URL.
     
     Args:
-        image_path: Path to the image file
+        url: Image URL
     
     Returns:
-        str: Base64 encoded image string
-    
+        bytes: Image data
+        
     Raises:
-        Exception: If image processing fails
+        Exception: If download fails
     """
-    logger.debug(f"Starting image encoding process for: {image_path}")
-    
     try:
-        # Validate image before processing
-        validate_image(image_path)
-
-        with Image.open(image_path) as img:
-            # Convert to RGB if needed
-            if img.mode != 'RGB':
-                logger.debug(f"Converting image from {img.mode} to RGB")
-                img = img.convert('RGB')
-            
-            # Convert to base64
-            buffered = io.BytesIO()
-            img.save(buffered, format="JPEG")
-            img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            
-            logger.debug("Image successfully encoded to base64")
-            return img_str
-
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.content
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        raise Exception(f"Error processing image: {str(e)}")
+        logger.error(f"Failed to download image from URL: {str(e)}")
+        raise
 
-def cleanup_image(image_path: str | Path) -> None:
+def validate_image_data(image_data: bytes) -> bool:
     """
-    Safely remove temporary image file.
+    Validate image data.
     
     Args:
-        image_path: Path to the image file to remove
+        image_data: Image bytes to validate
+    
+    Returns:
+        bool: True if valid
+        
+    Raises:
+        ValueError: If validation fails
     """
     try:
-        image_path = Path(image_path)
-        if image_path.exists():
-            image_path.unlink()
-            logger.debug(f"Removed temporary file: {image_path}")
+        # Check file size
+        if len(image_data) > MAX_CONTENT_LENGTH:
+            raise ValueError(f"Image too large. Maximum size: {MAX_CONTENT_LENGTH} bytes")
+
+        # Verify it's a valid image
+        img = Image.open(io.BytesIO(image_data))
+        img.verify()
+        return True
     except Exception as e:
-        logger.error(f"Error cleaning up image file: {str(e)}")
+        logger.error(f"Image validation failed: {str(e)}")
+        raise ValueError(f"Invalid image: {str(e)}")
+
+def encode_image_data(image_data: bytes) -> str:
+    """
+    Encode image data to base64.
+    
+    Args:
+        image_data: Image bytes to encode
+    
+    Returns:
+        str: Base64 encoded image
+    """
+    try:
+        return base64.b64encode(image_data).decode('utf-8')
+    except Exception as e:
+        logger.error(f"Failed to encode image: {str(e)}")
+        raise
+
+def get_image_data(source: str | Path | bytes) -> str:
+    """
+    Get base64 encoded image data from various sources.
+    
+    Args:
+        source: Image source (URL, file path, or bytes)
+    
+    Returns:
+        str: Base64 encoded image
+        
+    Raises:
+        ValueError: If source is invalid or processing fails
+    """
+    logger.debug(f"Processing image from source type: {type(source)}")
+    
+    try:
+        # Handle URLs
+        if isinstance(source, str) and is_valid_url(source):
+            logger.debug(f"Downloading image from URL: {source}")
+            image_data = download_image(source)
+            validate_image_data(image_data)
+            return encode_image_data(image_data)
+
+        # Handle file paths
+        elif isinstance(source, (str, Path)):
+            path = Path(source)
+            if not path.exists():
+                raise ValueError(f"File not found: {path}")
+                
+            if path.suffix[1:].lower() not in ALLOWED_EXTENSIONS:
+                raise ValueError(f"Unsupported file type. Allowed: {ALLOWED_EXTENSIONS}")
+                
+            logger.debug(f"Reading image from file: {path}")
+            with open(path, 'rb') as f:
+                image_data = f.read()
+                validate_image_data(image_data)
+                return encode_image_data(image_data)
+
+        # Handle raw bytes
+        elif isinstance(source, bytes):
+            logger.debug("Processing raw image data")
+            validate_image_data(source)
+            return encode_image_data(source)
+
+        else:
+            raise ValueError(f"Unsupported source type: {type(source)}")
+
+    except Exception as e:
+        logger.error(f"Failed to process image: {str(e)}")
+        raise

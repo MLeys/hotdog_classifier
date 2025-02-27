@@ -37,61 +37,56 @@ def classify_image():
     logger.info("Received classification request")
     
     try:
-        # Validate request
-        if 'file' not in request.files:
-            logger.warning("No file part in request")
-            return jsonify({'error': 'No file uploaded'}), 400
+        # Check for URL in request
+        if 'url' in request.form:
+            image_url = request.form['url']
+            logger.info(f"Processing image URL: {image_url}")
+            
+            try:
+                result = classifier.classify_image(image_url)
+                return jsonify({
+                    'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
+                })
+            except Exception as e:
+                logger.error(f"Error processing URL: {str(e)}")
+                return jsonify({'error': str(e)}), 400
+
+        # Handle file upload
+        elif 'file' in request.files:
+            file = request.files['file']
+            if file.filename == '':
+                logger.warning("No selected file")
+                return jsonify({'error': 'No file selected'}), 400
+            
+            if not file.filename.lower().endswith(tuple(config.ALLOWED_EXTENSIONS)):
+                logger.warning(f"Invalid file type: {file.filename}")
+                return jsonify({'error': 'Invalid file type'}), 400
+            
+            # Save and process file
+            filename = secure_filename(file.filename)
+            filepath = Path(app.config['UPLOAD_FOLDER']) / filename
+            
+            logger.debug(f"Saving uploaded file to: {filepath}")
+            file.save(filepath)
+            
+            try:
+                result = classifier.classify_image(filepath)
+                return jsonify({
+                    'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌'
+                })
+            finally:
+                # Clean up uploaded file
+                if filepath.exists():
+                    filepath.unlink()
+                    logger.debug(f"Removed temporary file: {filepath}")
         
-        file = request.files['file']
-        if file.filename == '':
-            logger.warning("No selected file")
-            return jsonify({'error': 'No file selected'}), 400
-        
-        # Validate file type
-        if not file.filename.lower().endswith(tuple(config.ALLOWED_EXTENSIONS)):
-            logger.warning(f"Invalid file type: {file.filename}")
-            return jsonify({'error': 'Invalid file type'}), 400
-        
-        # Save and process file
-        filename = secure_filename(file.filename)
-        filepath = Path(app.config['UPLOAD_FOLDER']) / filename
-        
-        logger.debug(f"Saving uploaded file to: {filepath}")
-        file.save(filepath)
-        
-        try:
-            # Classify image
-            result = classifier.classify_image(str(filepath))
-            
-            response_data = {
-                'result': 'Not Hotdog! ❌'
-            }
-            
-            if result:
-                response_data['result'] = 'Hotdog! 🌭'
-            
-            logger.info(f"Classification complete for {filename}: {result}")
-            return jsonify(response_data)
-            
-        except ConnectionError as e:
-            logger.error(f"Connection error during classification: {str(e)}")
-            return jsonify({'error': str(e)}), 503
-            
-        except TimeoutError as e:
-            logger.error(f"Timeout error during classification: {str(e)}")
-            return jsonify({'error': str(e)}), 504
-            
-        except Exception as e:
-            logger.error(f"Error during classification: {str(e)}")
-            return jsonify({'error': f'Classification error: {str(e)}'}), 500
-            
-        finally:
-            # Clean up uploaded file
-            cleanup_image(filepath)
+        else:
+            logger.warning("No file or URL provided")
+            return jsonify({'error': 'No image provided'}), 400
             
     except Exception as e:
         logger.error(f"Unexpected server error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Log application startup

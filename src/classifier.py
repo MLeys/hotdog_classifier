@@ -39,26 +39,26 @@ class HotdogClassifier:
             logger.error(f"API connection test failed: {str(e)}")
             return False
 
-    def classify_image(self, image_path: str | Path) -> bool:
+    def classify_image(self, image_source: str | Path | bytes) -> bool:
         """
         Classify if an image contains a hotdog.
         
         Args:
-            image_path: Path to the image file
+            image_source: Image source (URL, file path, or bytes)
         
         Returns:
             bool: True if hotdog, False if not
         """
-        logger.info(f"Starting classification for image: {image_path}")
+        logger.info(f"Starting classification for image source: {image_source}")
         
         try:
             # Test API connection first
             if not self.test_api_connection():
                 raise ConnectionError("Cannot connect to OpenRouter API")
 
-            # Encode image to base64
-            logger.debug("Converting image to base64")
-            base64_image = encode_image(image_path)
+            # Get image data
+            logger.debug("Processing image")
+            base64_image = get_image_data(image_source)
             
             # Prepare payload
             payload = {
@@ -102,7 +102,7 @@ class HotdogClassifier:
             result = response.json()
             answer = result['choices'][0]['message']['content'].strip().lower()
             
-            # Log raw response for debugging
+            # Log results
             logger.debug(f"Raw API response: {result}")
             logger.info(f"Classification answer: {answer}")
             
@@ -111,5 +111,6 @@ class HotdogClassifier:
             
             return is_hotdog
 
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"Connection error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Classification error: {str(e)}")
+            raise
