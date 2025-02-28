@@ -6,13 +6,7 @@ import requests
 from pathlib import Path
 import logging
 from src.utils.logger import setup_logger
-from src.utils.image_utils import (
-    is_valid_url,
-    download_image,
-    cleanup_image,
-    is_base64_image,
-    save_base64_image
-)
+from src.utils.image_utils import encode_image
 import src.config as config
 
 # Initialize logger
@@ -45,28 +39,124 @@ class HotdogClassifier:
             logger.error(f"API connection test failed: {str(e)}")
             return False
 
-    def classify_image(self, image_path: str | Path) -> bool:
+def classify_image(self, image_source: str | Path | bytes) -> bool:
+    """
+    Classify if an image contains a real, edible hotdog.
+    
+    Args:
+        image_source: Image source (URL, file path, or bytes)
+    
+    Returns:
+        bool: True if real hotdog food item, False if not
+    """
+    logger.info(f"Starting classification for image source: {image_source}")
+    
+    try:
+        # Test API connection first
+        if not self.test_api_connection():
+            raise ConnectionError("Cannot connect to OpenRouter API")
+
+        # Get image data
+        logger.debug("Processing image")
+        base64_image = get_image_data(image_source)
+        
+        # Prepare payload with detailed prompt
+        payload = {
+            "model": config.MODEL_NAME,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a precise food image classifier focusing only on real, edible hotdogs. Drawings, toys, costumes, or other representations do not count as real hotdogs."
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": """Analyze this image and determine if it shows a real, edible hotdog (sausage/frankfurter in a bun).
+
+Rules for classification:
+- Must be a real food item that could be eaten
+- Must have both a sausage/frankfurter AND a bun
+- Must be clearly visible and identifiable
+
+NOT considered a hotdog:
+- Drawings or artwork
+- Costumes or clothing
+- Toys or plastic replicas
+- Logos or graphics
+- Just a sausage without bun
+- Just a bun without sausage
+- Other similar foods (hamburgers, sandwiches)
+- Heavily processed/edited images
+
+Respond ONLY with:
+'Hotdog' - for real, edible hotdogs
+'Not Hotdog' - for everything else"""
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": config.MAX_TOKENS
+        }
+
+        # Make API request
+        logger.debug("Sending request to OpenRouter API")
+        logger.debug(f"Using model: {config.MODEL_NAME}")
+        
+        response = requests.post(
+            self.api_url,
+            headers=self.headers,
+            json=payload,
+            timeout=self.timeout
+        )
+        
+        # Log response details
+        logger.debug(f"API Response Status: {response.status_code}")
+        
+        # Raise exception for bad status codes
+        response.raise_for_status()
+        
+        # Parse response
+        result = response.json()
+        answer = result['choices'][0]['message']['content'].strip().lower()
+        
+        # Log results
+        logger.debug(f"Raw API response: {result}")
+        logger.info(f"Classification answer: {answer}")
+        
+        # Check for real hotdog classification
+        is_hotdog = "hotdog" in answer and "not" not in answer
+        logger.info(f"Final classification: {'Real Hotdog' if is_hotdog else 'Not a Real Hotdog'}")
+        
+        return is_hotdog
+
+    except Exception as e:
+        logger.error(f"Classification error: {str(e)}")
+        raise
         """
         Classify if an image contains a hotdog.
         
         Args:
-            image_path: Path to the image file
+            image_source: Image source (URL, file path, or bytes)
         
         Returns:
             bool: True if hotdog, False if not
         """
-        logger.info(f"Starting classification for image: {image_path}")
+        logger.info(f"Starting classification for image source: {image_source}")
         
         try:
             # Test API connection first
             if not self.test_api_connection():
                 raise ConnectionError("Cannot connect to OpenRouter API")
 
-            # Encode image to base64
-            with open(image_path, 'rb') as f:
-                image_data = f.read()
-                import base64
-                base64_image = base64.b64encode(image_data).decode('utf-8')
+            # Get image data
+            logger.debug("Processing image")
+            base64_image = get_image_data(image_source)
             
             # Prepare payload
             payload = {
@@ -119,14 +209,6 @@ class HotdogClassifier:
             
             return is_hotdog
 
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"Connection error: {str(e)}")
-            raise ConnectionError("Cannot connect to OpenRouter API")
-            
-        except requests.exceptions.Timeout as e:
-            logger.error(f"Timeout error: {str(e)}")
-            raise TimeoutError("API request timed out")
-            
         except Exception as e:
-            logger.error(f"Unexpected error during classification: {str(e)}")
+            logger.error(f"Classification error: {str(e)}")
             raise
