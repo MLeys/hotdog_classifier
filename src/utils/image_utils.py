@@ -15,6 +15,39 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+def process_url(url: str) -> str:
+    """
+    Process and validate image URL.
+    
+    Args:
+        url: URL to process
+        
+    Returns:
+        str: Processed URL
+    """
+    # If it's a data URL, download and convert to regular image
+    if url.startswith('data:image'):
+        try:
+            # Extract base64 data
+            content = url.split(',')[1]
+            image_data = base64.b64decode(content)
+            
+            # Save temporarily and return path
+            temp_path = os.path.join('uploads', f'temp_url_{uuid.uuid4()}.jpg')
+            with open(temp_path, 'wb') as f:
+                f.write(image_data)
+            return temp_path
+            
+        except Exception as e:
+            logger.error(f"Error processing data URL: {str(e)}")
+            raise ValueError("Invalid data URL format")
+    
+    # If it's a regular URL, validate and return
+    if not url.startswith(('http://', 'https://')):
+        raise ValueError("Invalid URL format")
+        
+    return url
+
 def get_image_data(image_path: str | Path) -> str:
     """
     Get base64 encoded image data from file.
