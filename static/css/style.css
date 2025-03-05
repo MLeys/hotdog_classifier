@@ -409,6 +409,12 @@ footer {
         height: 100px;
     }
 }
+.result-description {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
 
 @media (max-width: 768px) {
     .container {

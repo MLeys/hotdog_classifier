@@ -1,366 +1,235 @@
 /**
- * Main JavaScript file for the Real Hotdog Classifier application.
- * Handles file uploads, URL inputs, API interactions, and history management.
+ * Main JavaScript file for the Hotdog Classifier application.
+ * Handles file uploads, drag and drop, and API interactions.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements - Upload and URL
+    // DOM Elements
     const dropZone = document.querySelector('.drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const urlForm = document.getElementById('url-form');
-    const urlInput = document.getElementById('url-input');
-    const urlDisplay = document.getElementById('url-display');
-
-    // DOM Elements - Display Sections
-    const previewSection = document.getElementById('preview-section');
-    const previewImage = document.getElementById('preview-image');
-    const resultSection = document.getElementById('result-section');
+    const fileInput = dropZone.querySelector('.drop-zone__input');
+    const previewContainer = document.getElementById('preview-container');
+    const imagePreview = document.getElementById('image-preview');
+    const resultContainer = document.getElementById('result-container');
     const resultText = document.getElementById('result-text');
-    const loadingSection = document.getElementById('loading-spinner');
-    const errorSection = document.getElementById('error-section');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const errorContainer = document.getElementById('error-container');
     const errorText = document.getElementById('error-text');
 
-    // DOM Elements - Stats and History
-    const totalCount = document.getElementById('total-count');
-    const hotdogCount = document.getElementById('hotdog-count');
-    const hotdogRate = document.getElementById('hotdog-rate');
-    const historyList = document.getElementById('history-list');
-    const resetStatsButton = document.getElementById('reset-stats');
+    // Debug flag
+    const DEBUG = true;
 
-    // State Management
-    let history = JSON.parse(localStorage.getItem('hotdogHistory')) || [];
-    let stats = {
-        total: 0,
-        hotdogs: 0
+    // Console logging wrapper
+    const log = {
+        info: (...args) => DEBUG && console.log('[INFO]', ...args),
+        error: (...args) => DEBUG && console.error('[ERROR]', ...args),
+        warn: (...args) => DEBUG && console.warn('[WARN]', ...args),
+        debug: (...args) => DEBUG && console.debug('[DEBUG]', ...args)
     };
 
-    /**
-     * Calculate and update statistics based on history
-     */
-    function calculateStats() {
-        stats.total = history.length;
-        stats.hotdogs = history.filter(item => item.isRealHotdog).length;
-        
-        // Update display
-        totalCount.textContent = stats.total;
-        hotdogCount.textContent = stats.hotdogs;
-        const rate = stats.total ? ((stats.hotdogs / stats.total) * 100).toFixed(1) : '0.0';
-        hotdogRate.textContent = `${rate}%`;
+// Then replace all console.log/error calls with log.info/error
+
+
+async function handleUrl(url) {
+    resetDisplay();
+    log.info('Processing URL:', url);
+
+    const formattedUrl = formatImageUrl(url);
+    if (!formattedUrl) {
+        log.error('Invalid URL format');
+        showError('Please enter a valid URL');
+        return;
     }
-
+    // ... rest of the function
+}
     /**
-     * Add new item to history and update stats
-     * @param {string} imageUrl URL or data URL of the image
-     * @param {Object} result Classification result object
+     * Show error message
+     * @param {string} message - Error message to display
      */
-    function addToHistory(imageUrl, result) {
-        const item = {
-            imageUrl,
-            result: result.result,
-            isRealHotdog: result.isRealHotdog,
-            explanation: result.explanation,
-            timestamp: new Date().toLocaleString()
-        };
-        
-        history.unshift(item);
-        if (history.length > 50) history.pop(); // Keep last 50 items
-        
-        localStorage.setItem('hotdogHistory', JSON.stringify(history));
-        updateHistoryDisplay();
-        calculateStats();
-    }
-
-    /**
-     * Reset history and stats
-     */
-    function resetStats() {
-        history = [];
-        localStorage.setItem('hotdogHistory', JSON.stringify(history));
-        updateHistoryDisplay();
-        calculateStats();
-    }
-
-    /**
-     * Update history display in sidebar
-     */
-    function updateHistoryDisplay() {
-        historyList.innerHTML = history.map(item => `
-            <div class="history-item">
-                <div class="thumbnail">
-                    <img src="${item.imageUrl}" alt="Analyzed image">
-                </div>
-                <div class="content">
-                    <div class="result" data-result="${item.isRealHotdog ? 'hotdog' : 'not-hotdog'}">
-                        ${item.result}
-                    </div>
-                    <div class="explanation">${item.explanation}</div>
-                    <div class="timestamp">${item.timestamp}</div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    /**
-     * Show error message with details if available
-     * @param {string|Object} error - Error message or object
-     */
-    function showError(error) {
-        let message = '';
-        let help = '';
-
-        if (typeof error === 'string') {
-            message = error;
-        } else if (error.error) {
-            message = error.error;
-            if (error.help) {
-                help = `\n\nSuggestion: ${error.help}`;
-            }
-            if (error.details) {
-                help += `\nDetails: ${JSON.stringify(error.details, null, 2)}`;
-            }
-        } else {
-            message = 'An unexpected error occurred';
-        }
-
-        errorText.textContent = message + help;
-        errorSection.classList.remove('hidden');
-        
-        errorSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
+    function showError(message) {
+        errorText.textContent = message;
+        errorContainer.classList.remove('hidden');
         setTimeout(() => {
-            errorSection.classList.add('hidden');
-        }, 8000);
+            errorContainer.classList.add('hidden');
+        }, 5000);
     }
 
     /**
-     * Reset all display sections
+     * Reset display state
      */
     function resetDisplay() {
-        resultSection.classList.add('hidden');
-        loadingSection.classList.add('hidden');
-        errorSection.classList.add('hidden');
-        urlDisplay.classList.add('hidden');
+        resultContainer.classList.add('hidden');
+        loadingSpinner.classList.add('hidden');
+        errorContainer.classList.add('hidden');
     }
 
     /**
-     * Update image preview
-     * @param {string} src Image source (URL or Data URL)
+     * Handle file input change event
      */
-    function updatePreview(src) {
-        previewImage.src = src;
-        previewImage.onload = () => {
-            previewSection.classList.remove('hidden');
-            previewSection.scrollIntoView({ behavior: 'smooth' });
-        };
-        previewImage.onerror = () => {
-            showError('Failed to load image preview');
-            previewSection.classList.add('hidden');
-        };
-    }
-
-    /**
-     * Format and validate image URL, handling various URL formats
-     * @param {string} url URL to format
-     * @returns {string|null} Formatted URL or null if invalid
-     */
-    function formatImageUrl(url) {
-        try {
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                return null;
-            }
-
-            urlDisplay.textContent = `Processing: ${url}`;
-            urlDisplay.classList.remove('hidden');
-
-            if (url.includes('bing.com/th/id/')) {
-                return url;
-            }
-
-            let cleanUrl = url.split('?')[0].split('#')[0];
-            const hasImageExt = /\.(jpg|jpeg|png|gif|webp)$/i.test(cleanUrl);
-
-            if (!hasImageExt) {
-                cleanUrl = cleanUrl.replace(/\/$/, '') + '.jpg';
-                urlDisplay.textContent = `Trying modified URL: ${cleanUrl}`;
-            }
-
-            return cleanUrl;
-        } catch (error) {
-            console.error('Error formatting URL:', error);
-            return null;
+    fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length) {
+            updateThumbnail(fileInput.files[0]);
         }
-    }
+    });
 
     /**
-     * Classify image and handle response
-     * @param {FormData} formData Form data containing file or URL
+     * Handle click on drop zone
      */
-    async function classifyImage(formData) {
-        try {
-            loadingSection.classList.remove('hidden');
-            resultSection.classList.add('hidden');
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
 
-            const response = await fetch('/classify', {
-                method: 'POST',
-                body: formData
-            });
+    /**
+     * Handle drag over event
+     */
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drop-zone--over');
+    });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw data;
-            }
+    /**
+     * Handle drag leave and drag end events
+     */
+    ['dragleave', 'dragend'].forEach((type) => {
+        dropZone.addEventListener(type, () => {
+            dropZone.classList.remove('drop-zone--over');
+        });
+    });
 
-            const data = await response.json();
-            
-            loadingSection.classList.add('hidden');
-            resultSection.classList.remove('hidden');
-            
-            resultText.textContent = data.result;
-            resultText.setAttribute('data-result', data.isRealHotdog ? 'hotdog' : 'not-hotdog');
+    /**
+     * Handle drop event
+     */
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drop-zone--over');
 
-            // Add explanation if provided
-            const explanationEl = document.querySelector('.result-explanation');
-            if (explanationEl && data.explanation) {
-                explanationEl.textContent = data.explanation;
-                explanationEl.classList.remove('hidden');
-            }
-
-            addToHistory(previewImage.src, data);
-
-        } catch (error) {
-            loadingSection.classList.add('hidden');
-            showError(error);
-            console.error('Classification error:', error);
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            updateThumbnail(e.dataTransfer.files[0]);
         }
-    }
+    });
 
     /**
-     * Handle file selection
-     * @param {File} file Selected file
+     * Update thumbnail preview and initiate classification
+     * @param {File} file - The uploaded file
      */
-    function handleFile(file) {
+    function updateThumbnail(file) {
         resetDisplay();
 
+        // Validate file type
         if (!file.type.startsWith('image/')) {
             showError('Please upload an image file!');
             return;
         }
 
+        // Show preview
+        previewContainer.classList.remove('hidden');
+
+        // Create preview
         const reader = new FileReader();
-        reader.onload = (e) => {
-            updatePreview(e.target.result);
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            classifyImage(formData);
-        };
-        reader.onerror = () => {
-            showError('Error reading file');
-        };
         reader.readAsDataURL(file);
+        reader.onload = () => {
+            imagePreview.src = reader.result;
+            uploadAndClassify(file);
+        };
     }
 
     /**
-     * Handle URL submission
-     * @param {string} url Image URL
+     * Upload and classify the image
+     * @param {File} file - The file to classify
      */
-    async function handleUrl(url) {
-        resetDisplay();
+    function uploadAndClassify(file) {
+        const formData = new FormData();
+        formData.append('file', file);
 
-        const formattedUrl = formatImageUrl(url);
-        if (!formattedUrl) {
-            showError('Please enter a valid URL');
-            return;
-        }
+        // Show loading spinner
+        loadingSpinner.classList.remove('hidden');
 
-        try {
-            const imgPromise = new Promise((resolve, reject) => {
-                const testImg = new Image();
-                testImg.onload = () => resolve(formattedUrl);
-                testImg.onerror = () => reject('Failed to load image');
-                testImg.crossOrigin = "anonymous";
-                testImg.src = formattedUrl;
-            });
-
-            loadingSection.classList.remove('hidden');
-            await imgPromise;
-            
-            const formData = new FormData();
-            
-            try {
-                const response = await fetch(formattedUrl);
-                const blob = await response.blob();
-                const reader = new FileReader();
-                
-                const base64Promise = new Promise((resolve, reject) => {
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject('Failed to convert image');
+        // Send classification request
+        fetch('/classify', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Classification failed');
                 });
-                
-                reader.readAsDataURL(blob);
-                const base64Data = await base64Promise;
-                
-                formData.append('base64', base64Data);
-            } catch (error) {
-                formData.append('url', formattedUrl);
             }
-
-            updatePreview(formattedUrl);
-            await classifyImage(formData);
-
-        } catch (error) {
-            showError('Unable to load image from URL');
+            return response.json();
+        })
+        .then(data => {
+            loadingSpinner.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            
+            resultText.textContent = data.result;
+            resultText.style.color = data.result.includes('Hotdog') ? 
+                'var(--success-color)' : 'var(--error-color)';
+        })
+        .catch(error => {
+            loadingSpinner.classList.add('hidden');
+            showError(error.message || 'Error classifying image');
             console.error('Error:', error);
-            loadingSection.classList.add('hidden');
-        }
-    }
-
-    // Event Listeners
-    fileInput.addEventListener('change', (e) => {
-        if (fileInput.files.length) {
-            handleFile(fileInput.files[0]);
-        }
-    });
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderStyle = 'solid';
-    });
-
-    ['dragleave', 'dragend'].forEach(type => {
-        dropZone.addEventListener(type, () => {
-            dropZone.style.borderStyle = 'dashed';
         });
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderStyle = 'dashed';
-        
-        if (e.dataTransfer.files.length) {
-            handleFile(e.dataTransfer.files[0]);
-        }
-    });
-
-    urlForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const url = urlInput.value.trim();
-        
-        if (!url) return;
-
-        await handleUrl(url);
-        urlInput.value = '';
-    });
-
-    resetStatsButton?.addEventListener('click', () => {
-        if (confirm('Are you sure you want to reset history and statistics?\nThis will clear all previous classifications.')) {
-            resetStats();
-        }
-    });
-
-    // Initialize
-    updateHistoryDisplay();
-    calculateStats();
+    }
 });
+
+/**
+ * Classify image and handle response
+ * @param {FormData} formData Form data containing file or URL
+ * @param {string} [imageUrl] Optional URL for history (for URL submissions)
+ */
+async function classifyImage(formData, imageUrl = null) {
+    try {
+        log.info('Starting classification...');
+        loadingSection.classList.remove('hidden');
+        resultSection.classList.add('hidden');
+
+        const response = await fetch('/classify', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            log.error('Classification failed:', data);
+            throw data;
+        }
+
+        const data = await response.json();
+        log.info('Classification result:', data);
+        
+        loadingSection.classList.add('hidden');
+        resultSection.classList.remove('hidden');
+        
+        // Update result text and styling
+        resultText.textContent = data.result;
+        resultText.setAttribute('data-result', data.isRealHotdog ? 'hotdog' : 'not-hotdog');
+
+        // Add description if provided
+        const explanationEl = document.querySelector('.result-explanation');
+        if (explanationEl && data.description) {
+            explanationEl.textContent = data.description;
+            explanationEl.classList.remove('hidden');
+            log.debug('Added description:', data.description);
+        }
+
+        // Use provided imageUrl for history if available, otherwise use preview image
+        const historyImageUrl = imageUrl || previewImage.src;
+        log.debug('Using image URL for history:', historyImageUrl);
+        
+        // Add to history
+        addToHistory(historyImageUrl, {
+            result: data.result,
+            isRealHotdog: data.isRealHotdog,
+            description: data.description,
+            explanation: data.explanation
+        });
+
+        log.info('Classification completed successfully');
+
+    } catch (error) {
+        log.error('Classification error:', error);
+        loadingSection.classList.add('hidden');
+        showError(error);
+    }
+}

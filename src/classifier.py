@@ -28,29 +28,18 @@ class HotdogClassifier:
         """Test the connection to the OpenRouter API."""
         try:
             response = requests.get(
-                f"{config.API_BASE_URL}/api/v1/auth/key",
+                f"{config.API_BASE_URL}/api/v1/models",
                 headers={"Authorization": self.headers["Authorization"]},
                 timeout=self.timeout
             )
             response.raise_for_status()
             logger.debug("API connection test successful")
             return True
-        except requests.exceptions.RequestException as e:
-            error_msg = str(e)
-            if isinstance(e, requests.exceptions.ConnectionError):
-                logger.error("Cannot connect to OpenRouter API. Please check your internet connection.")
-            elif isinstance(e, requests.exceptions.Timeout):
-                logger.error("API connection timed out. Please try again.")
-            elif isinstance(e, requests.exceptions.HTTPError):
-                if e.response.status_code == 401:
-                    logger.error("Invalid API key. Please check your OPENROUTER_API_KEY.")
-                else:
-                    logger.error(f"HTTP Error: {e.response.status_code}")
-            else:
-                logger.error(f"API Error: {error_msg}")
+        except Exception as e:
+            logger.error(f"API connection test failed: {str(e)}")
             return False
 
-    def classify_image(self, image_path: str | Path) -> bool:
+    def classify_image(self, image_path: str | Path) -> tuple[bool, str]:
         """
         Classify if an image contains a real, edible hotdog.
         
@@ -58,7 +47,9 @@ class HotdogClassifier:
             image_path: Path to the image file
         
         Returns:
-            bool: True if real hotdog, False if not
+            tuple[bool, str]: (is_hotdog, description) where:
+                - is_hotdog: True if real hotdog, False if not
+                - description: Brief description of what's in the image
         """
         logger.info(f"Starting classification for image: {image_path}")
         
@@ -79,7 +70,7 @@ class HotdogClassifier:
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Analyze this image and determine if it shows a real, edible hotdog (frankfurter/sausage in a bun). Answer with EXACTLY 'Hotdog' ONLY if it's a real, edible hotdog. Answer with EXACTLY 'Not Hotdog' for anything else including drawings, toys, costumes, or non-edible representations of hotdogs. The item must be an actual edible food item to qualify as a hotdog."
+                                "text": "First, tell me if this is a hotdog (answer EXACTLY 'Hotdog' or 'Not Hotdog'). Then on a new line, briefly describe what you see in 15 words or less."
                             },
                             {
                                 "type": "image_url",
@@ -88,7 +79,7 @@ class HotdogClassifier:
                         ]
                     }
                 ],
-                "max_tokens": config.MAX_TOKENS
+                "max_tokens": 100
             }
 
             # Make API request
@@ -102,24 +93,22 @@ class HotdogClassifier:
                 timeout=self.timeout
             )
             
-            # Log response details
-            logger.debug(f"API Response Status: {response.status_code}")
-            
-            # Raise exception for bad status codes
             response.raise_for_status()
             
             # Parse response
             result = response.json()
-            answer = result['choices'][0]['message']['content'].strip().lower()
+            answer_text = result['choices'][0]['message']['content'].strip()
+            
+            # Split into classification and description
+            lines = answer_text.split('\n', 1)
+            is_hotdog = lines[0].lower().strip() == "hotdog"
+            description = lines[1].strip() if len(lines) > 1 else "No description provided"
             
             # Log results
-            logger.debug(f"Raw API response: {result}")
-            logger.info(f"Classification answer: {answer}")
+            logger.info(f"Classification result: {is_hotdog}")
+            logger.info(f"Description: {description}")
             
-            is_hotdog = answer == "hotdog"
-            logger.info(f"Final classification: {'Real Hotdog' if is_hotdog else 'Not a Real Hotdog'}")
-            
-            return is_hotdog
+            return is_hotdog, description
 
         except requests.exceptions.ConnectionError as e:
             logger.error(f"Connection error: {str(e)}")
