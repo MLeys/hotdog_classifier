@@ -1,5 +1,5 @@
 """
-Hotdog Classifier package.
+Real Hotdog Classifier package.
 """
 
 from .classifier import HotdogClassifier

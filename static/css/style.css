@@ -28,7 +28,7 @@ body {
 /* Layout */
 .container {
     flex: 1;
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 2rem;
 }
@@ -47,14 +47,28 @@ h1 {
 
 .subtitle {
     color: #666;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.criteria {
+    color: #666;
+    font-size: 0.9rem;
+    max-width: 600px;
+    margin: 1rem auto;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* Stats Section */
 .stats-section {
+    position: relative;
     display: flex;
     justify-content: space-around;
     background: white;
-    padding: 1rem;
+    padding: 1.5rem;
     border-radius: var(--border-radius);
     margin-bottom: 2rem;
     box-shadow: var(--box-shadow);
@@ -64,76 +78,126 @@ h1 {
     text-align: center;
 }
 
-/* Main Sections */
+.stat-label {
+    display: block;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.reset-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--primary-color);
+    opacity: 0.7;
+    transition: opacity var(--transition-speed);
+}
+
+.reset-button:hover {
+    opacity: 1;
+}
+
+/* Input Sections */
+.input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
 .upload-section,
 .url-section {
     background: white;
     padding: 1.5rem;
     border-radius: var(--border-radius);
-    margin-bottom: 1.5rem;
     box-shadow: var(--box-shadow);
 }
 
 h2 {
     margin-bottom: 1rem;
     color: var(--secondary-color);
+    font-size: 1.3rem;
 }
 
 /* Drop Zone */
 .drop-zone {
-    border: 2px dashed var(--primary-color);
-    border-radius: var(--border-radius);
+    width: 100%;
+    height: 200px;
     padding: 2rem;
     text-align: center;
     cursor: pointer;
-    transition: border var(--transition-speed) ease;
+    border: 2px dashed var(--primary-color);
+    border-radius: var(--border-radius);
+    background-color: white;
+    transition: border var(--transition-speed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.drop-zone:hover {
+.drop-zone:hover,
+.drop-zone--over {
     border-style: solid;
+    background-color: rgba(0, 136, 204, 0.05);
 }
 
-.file-input {
+.drop-zone__input {
     display: none;
 }
 
-.file-label {
-    cursor: pointer;
+.drop-zone__prompt {
     color: var(--primary-color);
+    font-size: 1.1rem;
 }
 
 /* URL Input */
-#url-form {
+.url-form {
+    width: 100%;
+}
+
+.url-input-group {
     display: flex;
     gap: 1rem;
 }
 
-#url-input {
+.url-input {
     flex: 1;
-    padding: 0.5rem;
+    padding: 0.75rem;
     border: 2px solid var(--primary-color);
     border-radius: var(--border-radius);
     font-size: 1rem;
 }
 
-button {
-    padding: 0.5rem 1rem;
+.url-submit {
+    padding: 0.75rem 1.5rem;
     background: var(--primary-color);
     color: white;
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: background var(--transition-speed) ease;
+    transition: background var(--transition-speed);
 }
 
-button:hover {
+.url-submit:hover {
     background: var(--secondary-color);
 }
 
 .url-display {
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
     color: #666;
     font-family: monospace;
+    font-size: 0.9rem;
     word-break: break-all;
 }
 
@@ -142,12 +206,13 @@ button:hover {
     background: white;
     padding: 1.5rem;
     border-radius: var(--border-radius);
-    margin-bottom: 1.5rem;
+    margin: 2rem 0;
     box-shadow: var(--box-shadow);
 }
 
-.preview-container {
+.preview-wrapper {
     text-align: center;
+    margin-top: 1rem;
 }
 
 #preview-image {
@@ -159,7 +224,7 @@ button:hover {
 /* Result Section */
 .result-section {
     text-align: center;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
 }
 
 .result-text {
@@ -168,12 +233,25 @@ button:hover {
     border-radius: var(--border-radius);
     font-size: 1.25rem;
     font-weight: bold;
+    transition: all var(--transition-speed);
+}
+
+.result-text[data-result="hotdog"] {
+    color: var(--success-color);
+    border: 2px solid var(--success-color);
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.result-text[data-result="not-hotdog"] {
+    color: var(--error-color);
+    border: 2px solid var(--error-color);
+    background: rgba(220, 53, 69, 0.1);
 }
 
 /* Loading Section */
 .loading-section {
     text-align: center;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
 }
 
 .spinner {
@@ -211,7 +289,7 @@ button:hover {
     right: 0;
     top: 0;
     overflow-y: auto;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
 }
 
 .history-sidebar h2 {
@@ -257,6 +335,17 @@ button:hover {
 .history-item .result {
     font-weight: bold;
     margin-bottom: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.history-item .result[data-result="hotdog"] {
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.history-item .result[data-result="not-hotdog"] {
+    background: rgba(220, 53, 69, 0.1);
 }
 
 .history-item .timestamp {
@@ -283,94 +372,14 @@ footer {
     display: none !important;
 }
 
-/* Add these styles to your existing stats section styles */
-.reset-button {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0.25rem;
-    color: var(--primary-color);
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
-}
-
-.reset-button:hover {
-    opacity: 1;
-}
-
-/* Make sure your stats-section has position: relative */
-.stats-section {
-    position: relative;
-    /* ... rest of your existing stats-section styles ... */
-}
-
 /* Responsive Design */
-@media (min-width: 769px) {
-    /* Desktop and tablet layouts */
-    body {
-        flex-direction: row;
-    }
-
-    .container {
-        margin-right: 300px; /* Space for sidebar */
-        margin-bottom: 0;
-        max-width: calc(100% - 300px);
-    }
-
-    .history-sidebar {
-        width: 280px;
-        height: 100vh;
-        position: fixed;
-        right: 0;
-        top: 0;
-        bottom: auto;
-    }
-
-    .history-list {
-        flex-direction: column;
-    }
-
-    .history-item {
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .history-item .thumbnail {
-        width: 60px;
-        height: 60px;
-    }
-}
-
-@media (max-width: 768px) {
-    /* Mobile layout */
+@media (max-width: 1200px) {
     body {
         flex-direction: column;
     }
 
     .container {
-        padding: 1rem;
-        margin-bottom: 200px; /* Space for bottom history */
-    }
-
-    h1 {
-        font-size: 2rem;
-    }
-
-    .stats-section {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    #url-form {
-        flex-direction: column;
-    }
-
-    button {
-        width: 100%;
+        margin-bottom: 200px;
     }
 
     .history-sidebar {
@@ -398,5 +407,28 @@ footer {
     .history-item .thumbnail {
         width: 100%;
         height: 100px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    .stats-section {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .url-input-group {
+        flex-direction: column;
+    }
+
+    .url-submit {
+        width: 100%;
     }
 }

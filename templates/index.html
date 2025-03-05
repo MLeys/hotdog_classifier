@@ -3,84 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotdog Classifier</title>
+    <title>Real Hotdog Classifier - Is it a real, edible hotdog?</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌭</text></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🌭 Hotdog Classifier 🌭</h1>
-            <p class="subtitle">Upload or provide a URL to check if an image contains a hotdog</p>
+            <h1>🌭 Real Hotdog Classifier 🌭</h1>
+            <p class="subtitle">Upload or provide a URL to check if an image contains a real, edible hotdog</p>
+            <p class="criteria">Only actual edible hotdogs (frankfurter/sausage in a bun) will be classified as hotdogs. 
+                Drawings, toys, costumes, logos, or any other representations are not considered real hotdogs.</p>
         </header>
 
         <main>
             <!-- Stats Section -->
             <div class="stats-section">
-
                 <div class="stat-item">
-                    <span>Total Analyzed:</span>
-                    <span id="total-count">0</span>
+                    <span class="stat-label">Total Analyzed:</span>
+                    <span id="total-count" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span>Hotdogs Found:</span>
-                    <span id="hotdog-count">0</span>
+                    <span class="stat-label">Real Hotdogs Found:</span>
+                    <span id="hotdog-count" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span>Hotdog Rate:</span>
-                    <span id="hotdog-rate">0%</span>
-                </div><div>
-                                    <!-- Add the reset button to your existing stats section -->
+                    <span class="stat-label">Real Hotdog Rate:</span>
+                    <span id="hotdog-rate" class="stat-value">0%</span>
+                </div>
                 <button id="reset-stats" class="reset-button" title="Reset Statistics">↺</button>
-                </div>
-
             </div>
 
-            <!-- File Upload Section -->
-            <section class="upload-section">
-                <h2>Option 1: Upload Image</h2>
-                <div class="drop-zone">
-                    <form id="upload-form">
-                        <input type="file" id="file-input" accept="image/*" class="file-input">
-                        <label for="file-input" class="file-label">
-                            Drop file here or click to upload
-                        </label>
+            <!-- Input Methods -->
+            <div class="input-section">
+                <!-- File Upload Section -->
+                <div class="upload-section">
+                    <h2>Option 1: Upload Image</h2>
+                    <div class="drop-zone">
+                        <span class="drop-zone__prompt">Drop file here or click to upload</span>
+                        <input type="file" id="file-input" name="file" class="drop-zone__input" accept="image/*">
+                    </div>
+                </div>
+
+                <!-- URL Input Section -->
+                <div class="url-section">
+                    <h2>Option 2: Image URL</h2>
+                    <form id="url-form" class="url-form">
+                        <div class="url-input-group">
+                            <input type="url" 
+                                   id="url-input" 
+                                   name="url" 
+                                   class="url-input" 
+                                   placeholder="Enter image URL"
+                                   required>
+                            <button type="submit" class="url-submit">Analyze</button>
+                        </div>
+                        <div id="url-display" class="url-display hidden"></div>
                     </form>
                 </div>
-            </section>
-
-            <!-- URL Input Section -->
-            <section class="url-section">
-                <h2>Option 2: Image URL</h2>
-                <form id="url-form">
-                    <input type="url" id="url-input" placeholder="Enter image URL" required>
-                    <button type="submit">Analyze</button>
-                </form>
-                <div id="url-display" class="url-display hidden"></div>
-            </section>
+            </div>
 
             <!-- Preview Section -->
-            <section id="preview-section" class="preview-section hidden">
-                <h2>Image Preview</h2>
-                <div class="preview-container">
+            <div id="preview-section" class="preview-section hidden">
+                <h3>Image Preview</h3>
+                <div class="preview-wrapper">
                     <img id="preview-image" src="" alt="Preview">
                 </div>
-            </section>
+            </div>
 
             <!-- Result Section -->
-            <section id="result-section" class="result-section hidden">
+            <div id="result-section" class="result-section hidden">
                 <div id="result-text" class="result-text"></div>
-            </section>
+                <p class="result-explanation"></p>
+            </div>
 
             <!-- Loading Section -->
-            <section id="loading-section" class="loading-section hidden">
+            <div id="loading-spinner" class="loading-section hidden">
                 <div class="spinner"></div>
-                <p>Analyzing image...</p>
-            </section>
+                <p>Analyzing image... 🔍</p>
+            </div>
 
             <!-- Error Section -->
-            <section id="error-section" class="error-section hidden">
-                <p id="error-text"></p>
-            </section>
+            <div id="error-section" class="error-section hidden">
+                <p id="error-text" class="error-message"></p>
+            </div>
         </main>
 
         <footer>

@@ -1,5 +1,5 @@
 /**
- * Main JavaScript file for the Hotdog Classifier application.
+ * Main JavaScript file for the Real Hotdog Classifier application.
  * Handles file uploads, URL inputs, API interactions, and history management.
  */
 
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewImage = document.getElementById('preview-image');
     const resultSection = document.getElementById('result-section');
     const resultText = document.getElementById('result-text');
-    const loadingSection = document.getElementById('loading-section');
+    const loadingSection = document.getElementById('loading-spinner');
     const errorSection = document.getElementById('error-section');
     const errorText = document.getElementById('error-text');
 
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function calculateStats() {
         stats.total = history.length;
-        stats.hotdogs = history.filter(item => item.isHotdog).length;
+        stats.hotdogs = history.filter(item => item.isRealHotdog).length;
         
         // Update display
         totalCount.textContent = stats.total;
@@ -51,21 +51,20 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Add new item to history and update stats
      * @param {string} imageUrl URL or data URL of the image
-     * @param {string} result Classification result text
+     * @param {Object} result Classification result object
      */
     function addToHistory(imageUrl, result) {
-        const isHotdog = result.includes('Hotdog!');
         const item = {
             imageUrl,
-            result,
-            isHotdog,
+            result: result.result,
+            isRealHotdog: result.isRealHotdog,
+            explanation: result.explanation,
             timestamp: new Date().toLocaleString()
         };
         
         history.unshift(item);
         if (history.length > 50) history.pop(); // Keep last 50 items
         
-        // Save to localStorage and update display
         localStorage.setItem('hotdogHistory', JSON.stringify(history));
         updateHistoryDisplay();
         calculateStats();
@@ -91,12 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <img src="${item.imageUrl}" alt="Analyzed image">
                 </div>
                 <div class="content">
-                    <div class="result" style="color: ${
-                        item.isHotdog ? 
-                        'var(--success-color)' : 'var(--error-color)'
-                    }">
+                    <div class="result" data-result="${item.isRealHotdog ? 'hotdog' : 'not-hotdog'}">
                         ${item.result}
                     </div>
+                    <div class="explanation">${item.explanation}</div>
                     <div class="timestamp">${item.timestamp}</div>
                 </div>
             </div>
@@ -109,20 +106,23 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function showError(error) {
         let message = '';
-        let details = '';
+        let help = '';
 
         if (typeof error === 'string') {
             message = error;
         } else if (error.error) {
             message = error.error;
+            if (error.help) {
+                help = `\n\nSuggestion: ${error.help}`;
+            }
             if (error.details) {
-                details = `\nDetails: ${JSON.stringify(error.details, null, 2)}`;
+                help += `\nDetails: ${JSON.stringify(error.details, null, 2)}`;
             }
         } else {
             message = 'An unexpected error occurred';
         }
 
-        errorText.textContent = message + details;
+        errorText.textContent = message + help;
         errorSection.classList.remove('hidden');
         
         errorSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -207,18 +207,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Classification failed');
+                throw data;
             }
 
             const data = await response.json();
             
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
+            
             resultText.textContent = data.result;
-            resultText.style.color = data.result.includes('Hotdog') ? 
-                'var(--success-color)' : 'var(--error-color)';
+            resultText.setAttribute('data-result', data.isRealHotdog ? 'hotdog' : 'not-hotdog');
 
-            addToHistory(previewImage.src, data.result);
+            // Add explanation if provided
+            const explanationEl = document.querySelector('.result-explanation');
+            if (explanationEl && data.explanation) {
+                explanationEl.textContent = data.explanation;
+                explanationEl.classList.remove('hidden');
+            }
+
+            addToHistory(previewImage.src, data);
 
         } catch (error) {
             loadingSection.classList.add('hidden');
@@ -348,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     resetStatsButton?.addEventListener('click', () => {
-        if (confirm('Are you sure you want to reset history and statistics?')) {
+        if (confirm('Are you sure you want to reset history and statistics?\nThis will clear all previous classifications.')) {
             resetStats();
         }
     });

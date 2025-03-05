@@ -1,5 +1,5 @@
 """
-Main Flask application for the Hotdog Classifier web interface.
+Main Flask application for the Real Hotdog Classifier web interface.
 Handles routes, image uploads, URL classification requests, and error handling.
 """
 
@@ -21,11 +21,6 @@ from src.utils.image_utils import (
     validate_image_format
 )
 import src.config as config
-from src.utils.error_handlers import (
-    ImageProcessingError,
-    handle_image_error
-)
-import src.config as config
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -41,6 +36,22 @@ app.config['MAX_CONTENT_LENGTH'] = config.MAX_CONTENT_LENGTH
 # Initialize classifier
 classifier = HotdogClassifier()
 
+def create_response(result: bool, source: str, request_id: str, **extra_data) -> dict:
+    """Create a consistent response format for all classification results."""
+    response = {
+        'result': 'Hotdog! 🌭 (Real, edible hotdog detected)' if result else 'Not Hotdog! ❌ (Not a real hotdog)',
+        'isRealHotdog': result,
+        'explanation': (
+            'This appears to be a real, edible hotdog in a bun.' if result 
+            else 'This is not a real, edible hotdog (could be a drawing, toy, costume, or other item).'
+        ),
+        'source': source,
+        'request_id': request_id,
+        'timestamp': datetime.datetime.now().isoformat()
+    }
+    response.update(extra_data)
+    return response
+
 @app.route('/')
 def index():
     """Render the main page."""
@@ -49,10 +60,7 @@ def index():
 
 @app.route('/classify', methods=['POST'])
 def classify_image():
-    """
-    Handle image classification requests.
-    Accepts file uploads, URLs, and base64 encoded images.
-    """
+    """Handle image classification requests."""
     logger.info("Received classification request")
     request_id = str(uuid.uuid4())
     logger.debug(f"Request ID: {request_id}")
@@ -65,40 +73,30 @@ def classify_image():
             
             try:
                 if not is_base64_image(image_data):
-                    raise ImageProcessingError("Invalid base64 image data")
+                    raise ValueError("Invalid base64 image data")
                 
                 temp_path = save_base64_image(image_data, app.config['UPLOAD_FOLDER'])
-                logger.debug(f"Base64 image saved to temporary file (Request ID: {request_id})")
                 
                 try:
                     result = classifier.classify_image(temp_path)
-                    logger.info(f"Classification result: {result} (Request ID: {request_id})")
-                    return jsonify({
-                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
-                        'source': 'base64',
-                        'request_id': request_id
-                    })
+                    return jsonify(create_response(result, 'base64', request_id))
                 finally:
                     cleanup_image(temp_path)
                     
             except Exception as e:
-                logger.error(f"Error processing base64 image: {str(e)} (Request ID: {request_id})")
-                error_response, status_code = handle_image_error(e)
-                error_response['request_id'] = request_id
-                return jsonify(error_response), status_code
+                logger.error(f"Error processing base64 image: {str(e)}")
+                return jsonify({'error': str(e), 'request_id': request_id}), 400
 
         # Handle URL input
         elif 'url' in request.form:
             image_url = request.form['url'].strip()
-            logger.info(f"Processing image URL: {image_url} (Request ID: {request_id})")
+            logger.info(f"Processing image URL: {image_url}")
+            
+            if not is_valid_url(image_url):
+                return jsonify({'error': 'Invalid URL provided'}), 400
             
             try:
-                if not is_valid_url(image_url):
-                    raise ImageProcessingError("Invalid URL provided")
-                
                 image_data = download_image(image_url)
-                logger.debug(f"Image downloaded from URL (Request ID: {request_id})")
-                
                 temp_path = Path(app.config['UPLOAD_FOLDER']) / f'temp_url_{request_id}.jpg'
                 
                 with open(temp_path, 'wb') as f:
@@ -106,75 +104,61 @@ def classify_image():
                 
                 try:
                     result = classifier.classify_image(temp_path)
-                    logger.info(f"Classification result: {result} (Request ID: {request_id})")
-                    return jsonify({
-                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
-                        'source': 'url',
-                        'processed_url': image_url,
-                        'request_id': request_id
-                    })
+                    return jsonify(create_response(
+                        result, 
+                        'url', 
+                        request_id,
+                        processed_url=image_url
+                    ))
                 finally:
                     cleanup_image(temp_path)
                     
             except Exception as e:
-                logger.error(f"Error processing URL: {str(e)} (Request ID: {request_id})")
-                error_response, status_code = handle_image_error(e)
-                error_response['request_id'] = request_id
-                return jsonify(error_response), status_code
+                logger.error(f"Error processing URL: {str(e)}")
+                return jsonify({'error': str(e), 'request_id': request_id}), 400
 
         # Handle file upload
         elif 'file' in request.files:
             file = request.files['file']
-            logger.debug(f"Processing file upload: {file.filename} (Request ID: {request_id})")
+            
+            if file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            
+            if not file.filename.lower().endswith(tuple(config.ALLOWED_EXTENSIONS)):
+                return jsonify({'error': 'Invalid file type'}), 400
             
             try:
-                if file.filename == '':
-                    raise ImageProcessingError("No file selected")
-                
-                if not file.filename.lower().endswith(tuple(config.ALLOWED_EXTENSIONS)):
-                    raise ImageProcessingError(
-                        f"Invalid file type. Allowed types: {', '.join(config.ALLOWED_EXTENSIONS)}"
-                    )
-                
-                # Validate file
                 validate_image_format(file.content_type)
-                validate_image_size(file.content_length or 0, config.MAX_CONTENT_LENGTH)
                 
                 filename = secure_filename(file.filename)
                 filepath = Path(app.config['UPLOAD_FOLDER']) / f"{request_id}_{filename}"
                 
-                logger.debug(f"Saving uploaded file to: {filepath} (Request ID: {request_id})")
                 file.save(filepath)
                 
                 try:
                     result = classifier.classify_image(filepath)
-                    logger.info(f"Classification result: {result} (Request ID: {request_id})")
-                    return jsonify({
-                        'result': 'Hotdog! 🌭' if result else 'Not Hotdog! ❌',
-                        'source': 'file',
-                        'request_id': request_id
-                    })
+                    return jsonify(create_response(
+                        result, 
+                        'file', 
+                        request_id,
+                        filename=file.filename
+                    ))
                 finally:
                     cleanup_image(filepath)
                     
             except Exception as e:
-                logger.error(f"Error processing file: {str(e)} (Request ID: {request_id})")
-                error_response, status_code = handle_image_error(e)
-                error_response['request_id'] = request_id
-                return jsonify(error_response), status_code
+                logger.error(f"Error processing file: {str(e)}")
+                return jsonify({'error': str(e), 'request_id': request_id}), 500
                 
         else:
-            logger.warning(f"No image provided (Request ID: {request_id})")
+            logger.warning("No image provided")
             return jsonify({
                 'error': 'No image provided',
-                'details': {
-                    'accepted_inputs': ['file', 'url', 'base64']
-                },
                 'request_id': request_id
             }), 400
             
     except Exception as e:
-        logger.error(f"Unexpected server error: {str(e)} (Request ID: {request_id})", exc_info=True)
+        logger.error(f"Unexpected server error: {str(e)}")
         return jsonify({
             'error': 'Internal server error',
             'request_id': request_id
@@ -228,7 +212,7 @@ def method_not_allowed(error):
 
 if __name__ == '__main__':
     # Log application startup
-    logger.info("Starting Hotdog Classifier application")
+    logger.info("Starting Real Hotdog Classifier application")
     logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     logger.info(f"Max content length: {app.config['MAX_CONTENT_LENGTH']} bytes")
     

@@ -1,15 +1,21 @@
-# src/utils/logger.py
 """
 Logging configuration module.
 """
 
 import logging
-import sys
 from pathlib import Path
 from datetime import datetime
 
 def setup_logger(name: str) -> logging.Logger:
-    """Configure and return a logger instance."""
+    """
+    Configure and return a logger instance.
+    
+    Args:
+        name: Logger name, typically __name__ of the calling module
+        
+    Returns:
+        logging.Logger: Configured logger instance
+    """
     # Create logs directory if it doesn't exist
     log_dir = Path('logs')
     log_dir.mkdir(exist_ok=True)
@@ -27,7 +33,7 @@ def setup_logger(name: str) -> logging.Logger:
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    # File handler (with timestamp in filename)
+    # File handler with timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     file_handler = logging.FileHandler(
         log_dir / f'hotdog_classifier_{timestamp}.log',
@@ -37,7 +43,7 @@ def setup_logger(name: str) -> logging.Logger:
     file_handler.setFormatter(formatter)
 
     # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
 
