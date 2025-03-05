@@ -86,12 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
         historyList.innerHTML = history.map(item => `
             <div class="history-item">
                 <div class="thumbnail">
-                    <img src="${item.imageUrl}" alt="Analyzed image">
+                    <img src="${item.imageUrl}" alt="Analyzed image" onerror="this.src='static/img/error.png'">
                 </div>
                 <div class="content">
                     <div class="result" data-result="${item.isRealHotdog ? 'hotdog' : 'not-hotdog'}">
                         ${item.result}
                     </div>
+                    ${item.description ? `<div class="description">${item.description}</div>` : ''}
                     <div class="timestamp">${item.timestamp}</div>
                 </div>
             </div>
@@ -174,25 +175,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
     /**
      * Classify image and handle response
      * @param {FormData} formData Form data containing file or URL
+     * @param {string} [imageUrl] Optional URL for history (for URL submissions)
      */
-    async function classifyImage(formData) {
+    async function classifyImage(formData, imageUrl = null) {
         try {
             loadingSection.classList.remove('hidden');
             resultSection.classList.add('hidden');
-
+    
             const response = await fetch('/classify', {
                 method: 'POST',
                 body: formData
             });
-
+    
             if (!response.ok) {
                 const data = await response.json();
                 throw data;
             }
-
+    
             const data = await response.json();
             
             loadingSection.classList.add('hidden');
@@ -200,23 +203,27 @@ document.addEventListener('DOMContentLoaded', () => {
             
             resultText.textContent = data.result;
             resultText.setAttribute('data-result', data.isRealHotdog ? 'hotdog' : 'not-hotdog');
-
-            // Add explanation if provided
+    
+            // Add description if provided
             const explanationEl = document.querySelector('.result-explanation');
-            if (explanationEl && data.explanation) {
-                explanationEl.textContent = data.explanation;
+            if (explanationEl && data.description) {
+                explanationEl.textContent = data.description;
                 explanationEl.classList.remove('hidden');
             }
-
-            addToHistory(previewImage.src, data);
-
+    
+            // Use the correct image URL for history
+            const historyImageUrl = imageUrl || previewImage.src;
+            addToHistory(historyImageUrl, {
+                ...data,
+                description: data.description  // Make sure description is included in history
+            });
+    
         } catch (error) {
             loadingSection.classList.add('hidden');
             showError(error);
             console.error('Classification error:', error);
         }
     }
-
     /**
      * Handle file selection
      * @param {File} file Selected file
@@ -231,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            updatePreview(e.target.result);
+            updatePreview(e.target.result);  // This sets previewImage.src
             
             const formData = new FormData();
             formData.append('file', file);
@@ -243,26 +250,35 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsDataURL(file);
     }
 
-    /**
+
+
+
+
+        /**
      * Handle URL submission
      * @param {string} url Image URL
      */
     async function handleUrl(url) {
         resetDisplay();
 
-        const formattedUrl = formatImageUrl(url);
-        if (!formattedUrl) {
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
             showError('Please enter a valid URL');
             return;
         }
 
         try {
-            // Update preview immediately with the URL
-            updatePreview(formattedUrl);
+            // Show loading state
+            loadingSection.classList.remove('hidden');
 
+            // Update preview immediately
+            updatePreview(url);  // Show the image right away
+
+            // Create form data
             const formData = new FormData();
-            formData.append('url', formattedUrl);
-            await classifyImage(formData);
+            formData.append('url', url);
+            
+            // Pass the URL to classifyImage for history
+            await classifyImage(formData, url);  // Pass URL as second parameter
 
         } catch (error) {
             showError('Unable to load image from URL');
