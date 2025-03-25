@@ -1,8 +1,3 @@
-"""
-Configuration module for the Hotdog Classifier application.
-Handles all configuration settings and environment variables.
-"""
-
 import os
 from dotenv import load_dotenv
 import logging
@@ -19,18 +14,18 @@ API_KEY = os.getenv('OPENROUTER_API_KEY')
 if not API_KEY:
     raise ValueError("OPENROUTER_API_KEY not found in environment variables")
 
-# API URLs - keep the working structure
+# API URLs
 API_BASE_URL = "https://openrouter.AI"
 API_URL = "https://openrouter.AI/api/v1/chat/completions"
 
-# Keep the working headers structure
+# Headers for API requests
 API_HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
     "Content-Type": "application/json",
     "HTTP-Referer": "http://localhost:5000"
 }
 
-# Keep the working model
+# Model Configuration
 MODEL_NAME = "openai/gpt-4o-mini"
 MAX_TOKENS = 50
 

@@ -1,107 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Hotdog Classifier - Is it a real, edible hotdog?</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌭</text></svg>">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotdog Classifier</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌭</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🌭 Real Hotdog Classifier 🌭</h1>
-            <p class="subtitle">Upload or provide a URL to check if an image contains a real, edible hotdog</p>
-            <p class="criteria">Only actual edible hotdogs (frankfurter/sausage in a bun) will be classified as hotdogs. 
-                Drawings, toys, costumes, logos, or any other representations are not considered real hotdogs.</p>
-        </header>
+  <div class="container">
+    <header class="header">
+      <h1>🌭 Real Hotdog Classifier 🌭</h1>
+      <p class="subtitle">Upload or provide a URL to check if an image contains a real, edible hotdog</p>
+    </header>
 
-        <main>
-            <!-- Stats Section -->
-            <div class="stats-section">
-                <div class="stat-item">
-                    <span class="stat-label">Total Analyzed:</span>
-                    <span id="total-count" class="stat-value">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Real Hotdogs Found:</span>
-                    <span id="hotdog-count" class="stat-value">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Real Hotdog Rate:</span>
-                    <span id="hotdog-rate" class="stat-value">0%</span>
-                </div>
-                <button id="reset-stats" class="reset-button" title="Reset Statistics">↺</button>
-            </div>
+    <section class="stats-section">
+      <div class="stat-item">
+        <div class="stat-label">Total Analyzed:</div>
+        <div id="total-count" class="stat-value">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Real Hotdogs Found:</div>
+        <div id="hotdog-count" class="stat-value">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Real Hotdog Rate:</div>
+        <div id="hotdog-rate" class="stat-value">0%</div>
+      </div>
+      <div class="stat-item">
+        <button id="reset-stats" class="reset-button">↺</button>
+      </div>
+    </section>
 
-            <!-- Input Methods -->
-            <div class="input-section">
-                <!-- File Upload Section -->
-                <div class="upload-section">
-                    <h2>Option 1: Upload Image</h2>
-                    <div class="drop-zone">
-                        <span class="drop-zone__prompt">Drop file here or click to upload</span>
-                        <input type="file" id="file-input" name="file" class="drop-zone__input" accept="image/*">
-                    </div>
-                </div>
+    <section class="input-section">
+      <div class="upload-section">
+        <h2>Option 1: Upload Image</h2>
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" class="drop-zone__input" accept="image/*">
+          <div class="drop-zone__prompt">Drop file here or click to upload</div>
+        </div>
+      </div>
 
-                <!-- URL Input Section -->
-                <div class="url-section">
-                    <h2>Option 2: Image URL</h2>
-                    <form id="url-form" class="url-form">
-                        <div class="url-input-group">
-                            <input type="url" 
-                                   id="url-input" 
-                                   name="url" 
-                                   class="url-input" 
-                                   placeholder="Enter image URL"
-                                   required>
-                            <button type="submit" class="url-submit">Analyze</button>
-                        </div>
-                        <div id="url-display" class="url-display hidden"></div>
-                    </form>
-                </div>
-            </div>
+      <div class="url-section">
+        <h2>Option 2: Image URL</h2>
+        <form id="url-form">
+          <div class="url-input-group">
+            <input type="text" id="url-input" class="url-input" placeholder="Enter Image URL or paste base64 data">
+            <button type="submit" class="url-submit">Analyze</button>
+          </div>
+        </form>
+        <div id="url-display" class="url-display hidden"></div>
+      </div>
+    </section>
 
-            <!-- Preview Section -->
-            <div id="preview-section" class="preview-section hidden">
-                <h3>Image Preview</h3>
-                <div class="preview-wrapper">
-                    <img id="preview-image" src="" alt="Preview">
-                </div>
-            </div>
+    <section id="preview-section" class="preview-section hidden">
+      <h2>Image Preview</h2>
+      <div class="preview-container">
+        <img id="preview-image" alt="Preview of uploaded image">
+      </div>
+    </section>
 
-            <!-- Result Section -->
-            <div id="result-section" class="result-section hidden">
-                <div id="result-text" class="result-text"></div>
-                <p class="result-explanation"></p>
-            </div>
+    <section id="result-section" class="result-section hidden">
+      <div id="result-text" class="result-text"></div>
+      <div class="result-explanation hidden"></div>
+    </section>
 
-            <!-- Loading Section -->
-            <div id="loading-spinner" class="loading-section hidden">
-                <div class="spinner"></div>
-                <p>Analyzing image... 🔍</p>
-            </div>
+    <section id="loading-spinner" class="loading-section hidden">
+      <div class="spinner"></div>
+      <p>Analyzing image... 🔍</p>
+    </section>
 
+    <section id="error-section" class="error-section hidden">
+      <p id="error-text"></p>
+    </section>
+  </div>
 
-            <!-- Error Section  -->
-            <div id="error-section" class="error-section hidden">
-                <p id="error-text" class="error-message"></p>
-            </div>
-        </main>
+  <div class="history-sidebar">
+    <h2>Analysis History</h2>
+    <div id="history-list" class="history-list"></div>
+  </div>
 
-        <footer>
-            <p>Powered by OpenRouter API & GPT-4 Vision</p>
-            <p class="version">Version 1.0.0</p>
-        </footer>
-    </div>
+  <footer class="footer">
+    <p>Powered by OpenRouter API & GPT-4 Vision</p>
+    <p>Version 1.0.0</p>
+  </footer>
 
-    <!-- History Sidebar -->
-    <aside class="history-sidebar">
-        <h2>Analysis History</h2>
-        <div id="history-list" class="history-list"></div>
-    </aside>
-
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
