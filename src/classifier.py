@@ -70,7 +70,7 @@ class HotdogClassifier:
                         "content": [
                             {
                                 "type": "text",
-                                "text": "First, tell me if this is a hotdog (answer EXACTLY 'Hotdog' or 'Not Hotdog'). Then on a new line, briefly describe what you see in 15 words or less."
+                                "text": "First, tell me if this is a real traditional and edible hotdog (answer EXACTLY 'Hotdog' or 'Not Hotdog'). Then on a new line, briefly describe what you see in 15 words or less."
                             },
                             {
                                 "type": "image_url",
